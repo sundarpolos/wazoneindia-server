@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: wazoneindia
+    env: node
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/sessions
+    envVars:
+      - key: NODE_VERSION
+        value: 20.18.0

@@ -1,0 +1,1638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WazoneIndia - Premium WhatsApp Suite</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --font-heading: 'Outfit', sans-serif;
+      --font-body: 'Plus Jakarta Sans', sans-serif;
+      --bg-primary: #0b0f19;
+      --bg-secondary: #131926;
+      --bg-tertiary: #1b2336;
+      --bg-glass: rgba(19,25,38,.75);
+      --accent-wa: #128c7e;
+      --accent-wa-light: #25d366;
+      --color-primary: #f8fafc;
+      --color-secondary: #94a3b8;
+      --color-muted: #64748b;
+      --color-border: rgba(255,255,255,.08);
+      --color-success: #10b981;
+      --color-error: #f43f5e;
+      --color-warning: #f59e0b;
+      --color-purple: #8b5cf6;
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 20px;
+      --transition-fast: .15s ease;
+      --transition-normal: .3s cubic-bezier(.4,0,.2,1);
+      --shadow-sm: 0 2px 8px -1px rgba(0,0,0,.2);
+      --shadow-md: 0 8px 30px -4px rgba(0,0,0,.4);
+      --shadow-glow: 0 0 25px -5px rgba(37,211,102,.3);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg-primary);
+      color: var(--color-primary);
+      font-family: var(--font-body);
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+      line-height: 1.5;
+    }
+    h1,h2,h3,h4 { font-family: var(--font-heading); font-weight: 600; letter-spacing: -.02em; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg-primary); }
+    ::-webkit-scrollbar-thumb { background: var(--bg-tertiary); border-radius: 4px; }
+
+    @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+    @keyframes slideUp { from{opacity:0;transform:translateY(15px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes ripple { 0%{transform:scale(.95);opacity:.8} 100%{transform:scale(1.3);opacity:0} }
+    @keyframes spin { to{transform:rotate(360deg)} }
+
+    .app-container { display:flex; flex-direction:column; min-height:100vh; }
+    .glass-panel {
+      background: var(--bg-glass);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-md);
+    }
+    .hidden { display:none!important; }
+
+    /* Header */
+    .header-bar {
+      display:flex; justify-content:space-between; align-items:center;
+      padding:1rem 2rem; background:rgba(11,15,25,.8);
+      border-bottom:1px solid var(--color-border);
+      backdrop-filter:blur(10px); position:sticky; top:0; z-index:50;
+    }
+    .brand-section { display:flex; align-items:center; gap:.75rem; }
+    .brand-logo-container {
+      display:flex; align-items:center; justify-content:center;
+      width:40px; height:40px; border-radius:var(--radius-md);
+      background:linear-gradient(135deg,var(--accent-wa),var(--accent-wa-light));
+      color:white; font-size:1.25rem; box-shadow:var(--shadow-glow);
+    }
+    .brand-title h1 {
+      font-size:1.25rem; font-weight:700;
+      background:linear-gradient(to right,#fff,#94a3b8);
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+    }
+    .brand-title span {
+      font-size:.75rem; color:var(--accent-wa-light); font-weight:600;
+      text-transform:uppercase; letter-spacing:.05em; display:block; margin-top:-2px;
+    }
+    .header-actions { display:flex; align-items:center; gap:1rem; }
+    .connection-pill {
+      display:flex; align-items:center; gap:.5rem;
+      padding:.5rem 1rem; border-radius:9999px;
+      background:var(--bg-secondary); border:1px solid var(--color-border);
+      font-size:.85rem; font-weight:500;
+    }
+    .connection-pill.connected { border-color:rgba(16,185,129,.3); background:rgba(16,185,129,.05); color:var(--accent-wa-light); }
+    .connection-pill.disconnected { border-color:rgba(244,63,94,.3); background:rgba(244,63,94,.05); color:var(--color-error); }
+    .connection-pill.waiting { border-color:rgba(245,158,11,.3); background:rgba(245,158,11,.05); color:var(--color-warning); }
+    .status-dot { width:8px; height:8px; border-radius:50%; position:relative; }
+    .status-dot.connected { background:var(--color-success); }
+    .status-dot.connected::after {
+      content:''; position:absolute; top:0; left:0; width:100%; height:100%;
+      border-radius:50%; background:var(--color-success); animation:ripple 1.5s infinite;
+    }
+    .status-dot.disconnected { background:var(--color-error); }
+    .status-dot.waiting { background:var(--color-warning); }
+
+    /* Main Grid */
+    .main-dashboard {
+      display:grid; grid-template-columns:280px 1fr 300px;
+      gap:1.5rem; padding:1.5rem; max-width:1600px; margin:0 auto; width:100%;
+    }
+    @media(max-width:1200px){ .main-dashboard{grid-template-columns:1fr 300px} }
+    @media(max-width:800px){ .main-dashboard{grid-template-columns:1fr} }
+
+    /* Sidebar */
+    .sidebar-left { display:flex; flex-direction:column; gap:1.25rem; }
+    .sidebar-card { padding:1.25rem; display:flex; flex-direction:column; }
+    .card-title {
+      font-size:.85rem; font-weight:700; color:var(--color-primary);
+      text-transform:uppercase; letter-spacing:.05em; margin-bottom:1rem;
+      display:flex; align-items:center; gap:.5rem;
+      border-bottom:1px solid var(--color-border); padding-bottom:.5rem;
+    }
+    .form-group { margin-bottom:.85rem; }
+    .form-group:last-child { margin-bottom:0; }
+    .form-label {
+      display:block; font-size:.75rem; font-weight:600;
+      color:var(--color-secondary); margin-bottom:.35rem;
+      text-transform:uppercase; letter-spacing:.02em;
+    }
+    .form-input,.form-textarea {
+      width:100%; padding:.6rem .85rem;
+      background:var(--bg-tertiary); border:1px solid var(--color-border);
+      border-radius:var(--radius-sm); color:var(--color-primary);
+      font-family:var(--font-body); font-size:.85rem;
+      transition:all var(--transition-fast);
+    }
+    .form-input:focus,.form-textarea:focus {
+      outline:none; border-color:var(--accent-wa);
+      box-shadow:0 0 0 2px rgba(18,140,126,.2);
+    }
+    .form-textarea { min-height:70px; resize:vertical; font-family:'Courier New',monospace; }
+
+    /* Auth Tabs */
+    .auth-tabs {
+      display:flex; background:var(--bg-secondary); padding:.3rem;
+      border-radius:var(--radius-md); border:1px solid var(--color-border); gap:.25rem; margin-bottom:1rem;
+    }
+    .auth-tabs button {
+      flex:1; padding:.5rem; background:none; border:none;
+      border-radius:var(--radius-sm); color:var(--color-secondary);
+      font-family:var(--font-heading); font-size:.78rem; font-weight:500;
+      cursor:pointer; transition:all var(--transition-fast);
+    }
+    .auth-tabs button:hover { color:var(--color-primary); background:rgba(255,255,255,.03); }
+    .auth-tabs button.active { color:white; background:var(--bg-tertiary); border:1px solid var(--color-border); }
+
+    #qr-wrap { text-align:center; margin-top:.5rem; }
+    #qr-image { width:200px; height:200px; image-rendering:pixelated; border-radius:var(--radius-md); }
+    .qr-hint { font-size:.7rem; color:var(--color-muted); margin-top:.35rem; }
+    .qr-placeholder {
+      padding:2rem 1rem; text-align:center;
+      border:1px dashed var(--color-border); border-radius:var(--radius-md);
+      color:var(--color-muted); font-size:.8rem;
+    }
+    .pairing-code-box {
+      background:#0d1117; border:2px dashed var(--color-warning);
+      border-radius:var(--radius-md); padding:1rem; text-align:center; margin-top:.75rem;
+    }
+    .pairing-code-box .code {
+      font-size:1.5rem; font-weight:700; letter-spacing:6px;
+      color:var(--color-warning); font-family:'Courier New',monospace;
+      margin:.5rem 0; user-select:all;
+    }
+    .pairing-code-box .hint { font-size:.7rem; color:var(--color-muted); }
+    .info-table { width:100%; border-collapse:collapse; font-size:.78rem; margin-top:.5rem; }
+    .info-table td { padding:.35rem .5rem; border-bottom:1px solid var(--color-border); }
+    .info-table td:first-child { color:var(--color-muted); width:35%; }
+    .info-table td:last-child { font-family:'Courier New',monospace; word-break:break-all; font-size:.72rem; }
+    .connected-section { border-top:1px solid var(--color-border); padding-top:.75rem; margin-top:.75rem; }
+    .connected-section h3 { font-size:.82rem; color:var(--color-success); margin-bottom:.35rem; }
+
+    /* Templates */
+    .template-list { display:flex; flex-direction:column; gap:.35rem; max-height:280px; overflow-y:auto; padding-right:2px; flex:1; }
+    .template-item {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:.5rem .75rem; border-radius:var(--radius-sm);
+      background:rgba(27,35,54,.5); border:1px solid var(--color-border);
+      cursor:pointer; transition:all var(--transition-fast);
+    }
+    .template-item:hover { background:var(--bg-tertiary); border-color:rgba(255,255,255,.15); }
+    .template-item.active { background:rgba(18,140,126,.1); border-color:var(--accent-wa); }
+    .template-info { display:flex; flex-direction:column; gap:.1rem; max-width:80%; }
+    .template-name { font-size:.82rem; font-weight:600; color:var(--color-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .template-type-badge { font-size:.62rem; font-weight:700; text-transform:uppercase; color:var(--accent-wa-light); }
+    .template-delete-btn { background:none; border:none; color:var(--color-muted); cursor:pointer; padding:.2rem; border-radius:4px; transition:all var(--transition-fast); }
+    .template-delete-btn:hover { color:var(--color-error); background:rgba(244,63,94,.1); }
+
+    /* Center Panel */
+    .dashboard-center { display:flex; flex-direction:column; gap:1.25rem; }
+    .panel-tabs {
+      display:flex; background:var(--bg-secondary); padding:.3rem;
+      border-radius:var(--radius-md); border:1px solid var(--color-border); gap:.25rem;
+    }
+    .panel-tabs button {
+      flex:1; padding:.55rem; background:none; border:none; border-radius:var(--radius-sm);
+      color:var(--color-secondary); font-family:var(--font-heading); font-size:.82rem;
+      font-weight:500; cursor:pointer; transition:all var(--transition-fast);
+    }
+    .panel-tabs button:hover { color:var(--color-primary); background:rgba(255,255,255,.03); }
+    .panel-tabs button.active { color:white; background:var(--bg-tertiary); border:1px solid var(--color-border); }
+
+    .composer-section { padding:1.5rem; animation:slideUp var(--transition-normal); }
+    .format-tabs {
+      display:flex; flex-wrap:wrap; gap:.4rem;
+      border-bottom:1px solid var(--color-border); padding-bottom:1rem; margin-bottom:1.25rem;
+    }
+    .format-tab-btn {
+      padding:.35rem .8rem; border-radius:9999px;
+      border:1px solid var(--color-border); background:var(--bg-tertiary);
+      color:var(--color-secondary); font-family:var(--font-body);
+      font-size:.72rem; font-weight:600; cursor:pointer; transition:all var(--transition-fast);
+    }
+    .format-tab-btn:hover { color:var(--color-primary); border-color:rgba(255,255,255,.2); }
+    .format-tab-btn.active { background:var(--accent-wa); border-color:var(--accent-wa); color:white; }
+    .format-content { display:flex; flex-direction:column; gap:.85rem; }
+
+    .form-grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:.85rem; }
+    @media(max-width:600px){ .form-grid-2{grid-template-columns:1fr} }
+
+    .nested-builder {
+      background:rgba(27,35,54,.3); border:1px solid var(--color-border);
+      border-radius:var(--radius-md); padding:1rem; margin-top:.35rem;
+    }
+    .nested-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:.75rem; }
+    .nested-title { font-size:.75rem; font-weight:700; color:var(--color-secondary); text-transform:uppercase; }
+    .nested-card {
+      background:var(--bg-tertiary); border:1px solid var(--color-border);
+      border-radius:var(--radius-sm); padding:.7rem; margin-bottom:.5rem; position:relative;
+    }
+    .nested-card .nested-card { background:rgba(0,0,0,.15); }
+    .nested-del { position:absolute; top:.4rem; right:.4rem; color:var(--color-muted); background:none; border:none; cursor:pointer; padding:2px; border-radius:4px; }
+    .nested-del:hover { color:var(--color-error); background:rgba(244,63,94,.1); }
+
+    .btn-secondary-outline {
+      display:inline-flex; align-items:center; gap:.3rem;
+      padding:.35rem .65rem; border:1px dashed var(--color-border);
+      background:none; border-radius:var(--radius-sm); color:var(--color-secondary);
+      font-family:var(--font-body); font-size:.7rem; font-weight:600;
+      cursor:pointer; transition:all var(--transition-fast);
+    }
+    .btn-secondary-outline:hover { color:var(--color-primary); border-color:var(--color-muted); background:rgba(255,255,255,.02); }
+
+    .composer-footer {
+      display:flex; justify-content:space-between; align-items:center;
+      margin-top:1rem; border-top:1px solid var(--color-border); padding-top:1.25rem; gap:1rem;
+    }
+    .action-row-buttons { display:flex; gap:.75rem; }
+    .btn-primary {
+      display:flex; align-items:center; gap:.4rem;
+      padding:.65rem 1.4rem;
+      background:linear-gradient(135deg,var(--accent-wa),var(--accent-wa-light));
+      border:none; border-radius:var(--radius-md); color:white;
+      font-family:var(--font-heading); font-weight:600; font-size:.88rem;
+      cursor:pointer; box-shadow:0 4px 15px rgba(18,140,126,.3);
+      transition:all var(--transition-normal);
+    }
+    .btn-primary:hover:not(:disabled) { transform:translateY(-1px); box-shadow:0 6px 20px rgba(37,211,102,.4); }
+    .btn-primary:disabled { opacity:.6; cursor:not-allowed; }
+    .btn-secondary {
+      display:flex; align-items:center; gap:.4rem;
+      padding:.65rem 1.2rem; background:var(--bg-tertiary);
+      border:1px solid var(--color-border); border-radius:var(--radius-md);
+      color:var(--color-primary); font-family:var(--font-heading);
+      font-weight:600; font-size:.88rem; cursor:pointer; transition:all var(--transition-fast);
+    }
+    .btn-secondary:hover { background:rgba(255,255,255,.05); border-color:var(--color-muted); }
+
+    .output-box {
+      padding:.65rem; background:#060911; border-radius:var(--radius-sm);
+      font-family:'Courier New',monospace; font-size:.72rem;
+      max-height:160px; overflow:auto; white-space:pre-wrap;
+      word-break:break-all; border:1px solid var(--color-border);
+    }
+    .output-box.success { border-left:3px solid var(--color-success); }
+    .output-box.error { border-left:3px solid var(--color-error); }
+    .output-box.info { border-left:3px solid var(--accent-wa); }
+
+    /* Bulk */
+    .bulk-section { border-top:1px solid var(--color-border); padding-top:1.25rem; margin-top:1rem; }
+    .bulk-grid { display:grid; grid-template-columns:1fr 1fr; gap:1.25rem; }
+    @media(max-width:768px){ .bulk-grid{grid-template-columns:1fr} }
+    .numbers-textarea { min-height:150px; font-family:monospace; font-size:.82rem; line-height:1.4; }
+    .progress-outer { width:100%; height:6px; background:var(--bg-primary); border-radius:3px; overflow:hidden; }
+    .progress-inner { height:100%; background:linear-gradient(to right,var(--accent-wa),var(--accent-wa-light)); transition:width .3s ease; }
+    .metric-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:.5rem; margin-top:.75rem; }
+    .metric-card { background:rgba(27,35,54,.5); border:1px solid var(--color-border); border-radius:var(--radius-md); padding:.65rem; text-align:center; }
+    .metric-value { font-size:1.2rem; font-weight:700; }
+    .metric-label { font-size:.6rem; color:var(--color-muted); text-transform:uppercase; margin-top:.1rem; }
+
+    /* Phone */
+    .sidebar-right { display:flex; flex-direction:column; align-items:center; }
+    .phone-mockup {
+      position:relative; width:270px; height:520px;
+      background:#000; border-radius:32px; padding:8px;
+      box-shadow:0 20px 50px rgba(0,0,0,.6),inset 0 0 3px 2px rgba(255,255,255,.2);
+      border:4px solid #222; overflow:hidden;
+    }
+    .phone-notch {
+      position:absolute; top:8px; left:50%; transform:translateX(-50%);
+      width:100px; height:16px; background:#000; border-radius:0 0 10px 10px; z-index:30;
+    }
+    .phone-screen { width:100%; height:100%; background:#0b141a; border-radius:24px; overflow:hidden; display:flex; flex-direction:column; }
+    .phone-chat-header { background:#1f2c34; padding:1.5rem .75rem .5rem; display:flex; align-items:center; gap:.5rem; }
+    .phone-avatar { width:26px; height:26px; border-radius:50%; background:var(--accent-wa); color:white; display:flex; align-items:center; justify-content:center; font-size:.65rem; font-weight:bold; }
+    .phone-contact-name { font-size:.7rem; font-weight:600; color:#e9edef; }
+    .phone-contact-status { font-size:.55rem; color:#8696a0; }
+    .phone-chat-area { flex:1; padding:.65rem; display:flex; flex-direction:column; justify-content:flex-end; background-image:radial-gradient(rgba(18,140,126,.05) 1px,transparent 1px); background-size:10px 10px; }
+    .wa-bubble { align-self:flex-end; max-width:90%; background:#005c4b; border-radius:8px 0 8px 8px; padding:.45rem .6rem; color:#e9edef; font-size:.68rem; position:relative; animation:fadeIn .25s ease-out; }
+    .wa-bubble-text { word-break:break-word; white-space:pre-wrap; }
+    .wa-bubble-title { font-weight:700; color:white; font-size:.7rem; }
+    .wa-bubble-footer { font-size:.55rem; color:#8696a0; text-transform:uppercase; border-top:1px solid rgba(255,255,255,.05); padding-top:.2rem; margin-top:.2rem; }
+    .wa-bubble-image { width:100%; height:100px; object-fit:cover; border-radius:6px; background:#1f2c34; margin-bottom:4px; }
+    .wa-bubble-time { font-size:.5rem; color:rgba(255,255,255,.5); text-align:right; margin-top:2px; }
+    .wa-bubble-buttons { display:flex; flex-direction:column; gap:3px; margin-top:4px; }
+    .wa-btn { background:#202c33; color:#00a884; border:none; padding:5px; border-radius:6px; font-size:.65rem; font-weight:600; text-align:center; user-select:none; cursor:default; }
+    .wa-list-trigger { background:#202c33; color:#00a884; border-radius:6px; padding:5px; font-size:.65rem; font-weight:600; text-align:center; border-top:1px solid rgba(255,255,255,.05); margin-top:4px; }
+    .wa-poll-container { display:flex; flex-direction:column; gap:4px; background:#1f2c34; border-radius:6px; padding:.45rem; margin-top:4px; }
+    .wa-poll-option { display:flex; align-items:center; gap:4px; background:rgba(255,255,255,.04); padding:4px 6px; border-radius:4px; font-size:.65rem; }
+    .wa-poll-radio { width:8px; height:8px; border:1px solid #8696a0; border-radius:50%; flex-shrink:0; }
+    .wa-carousel-container { display:flex; gap:6px; overflow-x:auto; padding:2px 0; }
+    .wa-carousel-card { flex:0 0 160px; background:#1f2c34; border-radius:8px; overflow:hidden; }
+    .wa-carousel-card-img { width:100%; height:65px; object-fit:cover; background:#2a3942; }
+    .wa-carousel-card-content { padding:5px; }
+    .wa-carousel-card-title { font-weight:700; font-size:.65rem; color:white; }
+    .wa-carousel-card-body { font-size:.6rem; color:#d1d7db; }
+    .wa-carousel-card-buttons { display:flex; flex-direction:column; gap:2px; padding:0 5px 5px; }
+    .wa-carousel-btn { background:#2a3942; color:#00a884; border:none; padding:3px; border-radius:4px; font-size:.6rem; font-weight:600; }
+    .phone-input-row { background:#1f2c34; padding:.5rem; display:flex; align-items:center; gap:.5rem; }
+    .phone-input-row .bar { flex:1; height:22px; background:#2a3942; border-radius:16px; }
+    .phone-mic-btn { width:22px; height:22px; border-radius:50%; background:#00a884; display:flex; align-items:center; justify-content:center; font-size:.6rem; }
+
+    /* Console */
+    .console-section { grid-column:1/-1; }
+    .console-header {
+      display:flex; justify-content:space-between; align-items:center;
+      padding:.65rem 1.25rem; border-bottom:1px solid var(--color-border);
+      background:rgba(19,25,38,.9); border-radius:var(--radius-lg) var(--radius-lg) 0 0;
+    }
+    .console-title-container { display:flex; align-items:center; gap:.5rem; }
+    .console-dot { width:6px; height:6px; border-radius:50%; background:var(--color-success); }
+    .console-title { font-family:monospace; font-size:.78rem; color:var(--color-secondary); font-weight:600; }
+    .console-actions { display:flex; gap:.5rem; }
+    .console-btn {
+      display:inline-flex; align-items:center; gap:.3rem;
+      padding:.3rem .6rem; background:var(--bg-tertiary);
+      border:1px solid var(--color-border); border-radius:var(--radius-sm);
+      color:var(--color-secondary); font-family:var(--font-body);
+      font-size:.65rem; font-weight:600; cursor:pointer; transition:all var(--transition-fast);
+    }
+    .console-btn:hover { color:var(--color-primary); border-color:var(--color-muted); }
+    .console-body {
+      padding:.85rem; background:#060911; max-height:200px; overflow-y:auto;
+      font-family:'Courier New',monospace; font-size:.75rem;
+      border-radius:0 0 var(--radius-lg) var(--radius-lg);
+      display:flex; flex-direction:column; gap:.3rem;
+    }
+    .console-line { display:flex; gap:.5rem; line-height:1.4; word-break:break-all; white-space:pre-wrap; }
+    .console-ts { color:var(--color-muted); flex-shrink:0; user-select:none; }
+    .console-text { flex:1; }
+    .console-text.system { color:#38bdf8; }
+    .console-text.info { color:var(--color-secondary); }
+    .console-text.success { color:var(--color-success); }
+    .console-text.warning { color:var(--color-warning); }
+    .console-text.error { color:var(--color-error); }
+    .console-text.payload { color:#c084fc; }
+
+    /* Toast */
+    .toast {
+      position:fixed; bottom:2rem; right:2rem;
+      padding:.65rem 1.1rem; border-radius:var(--radius-md);
+      background:var(--bg-secondary); border:1px solid var(--color-border);
+      box-shadow:var(--shadow-md); display:flex; align-items:center; gap:.5rem;
+      z-index:100; font-size:.82rem; animation:slideUp .3s cubic-bezier(.18,.89,.32,1.28);
+    }
+    .toast.success { border-color:rgba(16,185,129,.3); color:var(--accent-wa-light); }
+    .toast.error { border-color:rgba(244,63,94,.3); color:var(--color-error); }
+    .animate-spin { animation:spin 1s linear infinite; }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <!-- HEADER -->
+    <header class="header-bar">
+      <div class="brand-section">
+        <div class="brand-logo-container">&#9993;</div>
+        <div class="brand-title">
+          <h1>WazoneIndia</h1>
+          <span>WhatsApp Automation Suite</span>
+        </div>
+      </div>
+      <div class="header-actions">
+        <div class="connection-pill disconnected" id="statusPill">
+          <span class="status-dot disconnected" id="statusDot"></span>
+          <span id="statusText">Instance: Disconnected</span>
+        </div>
+        <button class="btn-secondary" onclick="checkStatus()" id="refreshBtn" style="padding:.4rem .8rem;font-size:.78rem;border-radius:9999px">
+          <span id="refreshIcon">&#8635;</span> Refresh
+        </button>
+      </div>
+    </header>
+
+    <!-- MAIN DASHBOARD -->
+    <main class="main-dashboard">
+      
+      <!-- LEFT SIDEBAR -->
+      <section class="sidebar-left">
+        <!-- Device Manager -->
+        <div class="glass-panel sidebar-card">
+          <h2 class="card-title">&#128241; Device Manager</h2>
+          <div class="form-group">
+            <label class="form-label">New Device Session ID</label>
+            <div style="display:flex;gap:.35rem">
+              <input class="form-input" id="new-session-name" value="" placeholder="e.g. wazone_919XXXXXXXXX">
+              <button class="btn-primary" onclick="addDevice()" id="addDeviceBtn" style="padding:0 .65rem;border-radius:8px;white-space:nowrap;font-size:.78rem">+ Add</button>
+            </div>
+            <p style="font-size:.62rem;color:var(--color-muted);margin-top:.15rem">Each phone number needs its own session. Click a device to set it as the active sender.</p>
+          </div>
+          <div id="deviceList" style="display:flex;flex-direction:column;gap:.5rem;margin-top:.25rem;max-height:420px;overflow-y:auto;padding-right:2px">
+            <div style="padding:1rem;text-align:center;font-size:.72rem;color:var(--color-muted)">Loading devices...</div>
+          </div>
+          <div id="device-output" class="output-box info" style="margin-top:.5rem;font-size:.72rem">Click a device to activate it for sending.</div>
+          <div class="form-group" style="margin-top:.65rem;padding-top:.5rem;border-top:1px solid var(--color-border)">
+            <label class="form-label" style="display:flex;align-items:center;gap:.5rem;cursor:pointer;text-transform:none;color:var(--color-primary);font-size:.72rem">
+              <input type="checkbox" id="mockMode" style="width:13px;height:13px;accent-color:var(--accent-wa)">
+              Offline Sandbox (simulates API)
+            </label>
+          </div>
+          <div id="connection-info" class="hidden connected-section" style="margin-top:.5rem">
+            <h3 style="font-size:.72rem;color:var(--color-success)">&#10003; Active Device</h3>
+            <table class="info-table">
+              <tr><td>Session</td><td id="info-session">-</td></tr>
+              <tr><td>Phone</td><td id="info-phone">-</td></tr>
+              <tr><td>JID</td><td id="info-jid">-</td></tr>
+              <tr><td>Platform</td><td id="info-platform">-</td></tr>
+            </table>
+          </div>
+        </div>
+
+        <!-- Templates -->
+        <div class="glass-panel sidebar-card" style="flex:1">
+          <h2 class="card-title">&#128193; Preset Templates</h2>
+          <div class="template-list" id="templateList"></div>
+          <div style="margin-top:auto;padding-top:1rem;border-top:1px solid var(--color-border)">
+            <label class="form-label">Save Current Config As Template</label>
+            <div style="display:flex;gap:.35rem">
+              <input class="form-input" id="newTemplateName" placeholder="Template Name...">
+              <button class="btn-primary" onclick="saveTemplate()" style="padding:0 .65rem;border-radius:8px">+</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- CENTER -->
+      <section class="dashboard-center">
+        <div class="panel-tabs">
+          <button class="active" onclick="setMainTab('single')" id="tab-single">&#128241; Single Dispatcher</button>
+          <button onclick="setMainTab('bulk')" id="tab-bulk">&#128101; Bulk Campaigner</button>
+        </div>
+
+        <div class="glass-panel composer-section">
+          <!-- Format Tabs -->
+          <div class="format-tabs">
+            <button class="format-tab-btn active" onclick="setType('text')" id="type-text">&#128221; Text</button>
+            <button class="format-tab-btn" onclick="setType('image')" id="type-image">&#128247; Media</button>
+            <button class="format-tab-btn" onclick="setType('document')" id="type-document">&#128203; Document</button>
+            <button class="format-tab-btn" onclick="setType('button')" id="type-button">&#128205; Buttons</button>
+            <button class="format-tab-btn" onclick="setType('list')" id="type-list">&#128203; List</button>
+            <button class="format-tab-btn" onclick="setType('poll')" id="type-poll">&#128202; Poll</button>
+            <button class="format-tab-btn" onclick="setType('carousel')" id="type-carousel">&#127904; Carousel</button>
+          </div>
+
+          <!-- Recipient (for single mode) -->
+          <div id="singleRecipientSection" style="margin-bottom:.5rem">
+            <div class="form-grid-2">
+              <div class="form-group">
+                <label class="form-label">Recipient Phone Number</label>
+                <input class="form-input" id="send-number" value="919843350000" placeholder="e.g. 919999999999">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Sending Device</label>
+                <select class="form-input" id="send-device-select">
+                  <option value="">Select a device...</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Format Fields -->
+          <div class="format-content" id="formatFields">
+            <!-- TEXT -->
+            <div id="text-fields">
+              <div class="form-group">
+                <label class="form-label">Message Text</label>
+                <textarea class="form-textarea" id="send-message" rows="3">Hello from WazoneIndia!</textarea>
+              </div>
+            </div>
+
+            <!-- MEDIA -->
+            <div id="image-fields" class="hidden">
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label class="form-label">Media URL</label>
+                  <input class="form-input" id="send-mediaUrl" value="https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?q=80&w=600&auto=format&fit=crop">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Media Type</label>
+                  <select class="form-input" id="send-mediaType">
+                    <option value="image">Image</option>
+                    <option value="video">Video</option>
+                    <option value="document">Document</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Caption</label>
+                <textarea class="form-textarea" id="send-caption" rows="2"></textarea>
+              </div>
+            </div>
+
+            <!-- DOCUMENT -->
+            <div id="document-fields" class="hidden">
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label class="form-label">Document URL</label>
+                  <input class="form-input" id="doc-mediaUrl" placeholder="https://storage.example.com/report.pdf">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">File Name</label>
+                  <input class="form-input" id="doc-fileName" value="document.pdf" placeholder="e.g. report.pdf">
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Caption (Optional)</label>
+                <textarea class="form-textarea" id="doc-caption" rows="2">Please find the attached document.</textarea>
+              </div>
+            </div>
+
+            <!-- BUTTONS -->
+            <div id="button-fields" class="hidden">
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label class="form-label">Header Media URL (Optional)</label>
+                  <input class="form-input" id="btn-mediaUrl" placeholder="https://...">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Footer</label>
+                  <input class="form-input" id="btn-footer" value="WazoneIndia">
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Body Text</label>
+                <textarea class="form-textarea" id="btn-text" rows="2">New exclusive offer available today only!</textarea>
+              </div>
+              <div class="nested-builder">
+                <div class="nested-header">
+                  <span class="nested-title">Interactive Buttons (max 3)</span>
+                  <button class="btn-secondary-outline" onclick="addBtn()">+ Add Button</button>
+                </div>
+                <div id="buttonList"></div>
+                <p id="btnEmpty" style="font-size:.7rem;color:var(--color-muted);text-align:center;padding:.5rem 0">No buttons configured.</p>
+              </div>
+            </div>
+
+            <!-- LIST -->
+            <div id="list-fields" class="hidden">
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label class="form-label">Header Media URL</label>
+                  <input class="form-input" id="list-mediaUrl" placeholder="https://...">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Title</label>
+                  <input class="form-input" id="list-title" value="WazoneIndia Solutions">
+                </div>
+              </div>
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label class="form-label">Button Text</label>
+                  <input class="form-input" id="list-buttonText" value="View Options">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Footer</label>
+                  <input class="form-input" id="list-footer" value="WazoneIndia">
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Body Text</label>
+                <textarea class="form-textarea" id="list-text" rows="2">Please review our available services:</textarea>
+              </div>
+              <div class="nested-builder">
+                <div class="nested-header">
+                  <span class="nested-title">Menu Sections</span>
+                  <button class="btn-secondary-outline" onclick="addSection()">+ Add Section</button>
+                </div>
+                <div id="sectionList"></div>
+                <p id="sectionEmpty" style="font-size:.7rem;color:var(--color-muted);text-align:center;padding:.5rem 0">No sections configured.</p>
+              </div>
+            </div>
+
+            <!-- POLL -->
+            <div id="poll-fields" class="hidden">
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label class="form-label">Banner URL (Optional)</label>
+                  <input class="form-input" id="poll-mediaUrl" placeholder="https://...">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Selectable Count</label>
+                  <input class="form-input" id="poll-count" type="number" value="1" min="1">
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Question</label>
+                <input class="form-input" id="poll-name" value="Which plan fits your requirements best?">
+              </div>
+              <div class="nested-builder">
+                <div class="nested-header">
+                  <span class="nested-title">Poll Options</span>
+                  <button class="btn-secondary-outline" onclick="addPollOption()">+ Add Option</button>
+                </div>
+                <div id="pollOptionList"></div>
+                <p id="pollEmpty" style="font-size:.7rem;color:var(--color-muted);text-align:center;padding:.5rem 0">No options configured.</p>
+              </div>
+            </div>
+
+            <!-- CAROUSEL -->
+            <div id="carousel-fields" class="hidden">
+              <div class="form-group">
+                <label class="form-label">Footer Text</label>
+                <input class="form-input" id="carousel-footer" value="WazoneIndia Deck Engine">
+              </div>
+              <div class="nested-builder">
+                <div class="nested-header">
+                  <span class="nested-title">Carousel Cards</span>
+                  <button class="btn-secondary-outline" onclick="addCarouselCard()">+ Add Card</button>
+                </div>
+                <div id="cardList"></div>
+                <p id="cardEmpty" style="font-size:.7rem;color:var(--color-muted);text-align:center;padding:.5rem 0">No cards configured.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- BULK SECTION -->
+          <div id="bulkSection" class="hidden bulk-section">
+            <div class="bulk-grid">
+              <div class="form-group">
+                <label class="form-label">Bulk Numbers (comma or line separated)</label>
+                <textarea class="form-input numbers-textarea" id="bulkNumbers">919843350000</textarea>
+              </div>
+              <div>
+                <div class="form-group">
+                  <label class="form-label">Delay Between Messages (seconds)</label>
+                  <input class="form-input" id="bulkDelay" type="number" value="3" min="1" max="60">
+                </div>
+                <div class="glass-panel" style="padding:.85rem;background:rgba(0,0,0,.1)">
+                  <div style="display:flex;justify-content:space-between;font-size:.72rem;font-weight:600">
+                    <span>Progress</span>
+                    <span id="bulkProgressPct">0%</span>
+                  </div>
+                  <div class="progress-outer" style="margin-top:.35rem">
+                    <div class="progress-inner" id="bulkProgressBar" style="width:0%"></div>
+                  </div>
+                  <div class="metric-grid">
+                    <div class="metric-card"><div class="metric-value" id="bulkTotal">0</div><div class="metric-label">Total</div></div>
+                    <div class="metric-card"><div class="metric-value" style="color:var(--color-success)" id="bulkSuccess">0</div><div class="metric-label">Sent</div></div>
+                    <div class="metric-card"><div class="metric-value" style="color:var(--color-error)" id="bulkFailed">0</div><div class="metric-label">Failed</div></div>
+                  </div>
+                  <div id="bulkCurrent" style="font-size:.7rem;color:var(--color-warning);font-weight:700;margin-top:.35rem"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Footer -->
+          <div class="composer-footer">
+            <button class="btn-secondary" onclick="copyCurl()">&#128203; Copy cURL</button>
+            <div class="action-row-buttons">
+              <button class="btn-primary" onclick="sendMessage()" id="sendBtn">&#10148; Send to WhatsApp</button>
+              <button class="btn-primary hidden" onclick="startBulk()" id="bulkStartBtn" style="background:linear-gradient(135deg,var(--accent-wa),var(--accent-wa-light))">&#9654; Start Campaign</button>
+              <button class="btn-primary hidden" onclick="stopBulk()" id="bulkStopBtn" style="background:linear-gradient(135deg,var(--color-error),#e11d48)">&#9646;&#9646; Stop</button>
+            </div>
+          </div>
+          <div id="send-output" class="output-box info" style="margin-top:.75rem">Fill in fields and send</div>
+        </div>
+      </section>
+
+      <!-- RIGHT SIDEBAR - PHONE -->
+      <section class="sidebar-right">
+        <div class="phone-mockup">
+          <div class="phone-notch"></div>
+          <div class="phone-screen">
+            <div class="phone-chat-header">
+              <div class="phone-avatar">W</div>
+              <div>
+                <div class="phone-contact-name">WazoneIndia</div>
+                <div class="phone-contact-status">online</div>
+              </div>
+            </div>
+            <div class="phone-chat-area" id="phoneChat">
+              <div class="wa-bubble" id="phoneBubble">
+                <div id="phonePreviewContent">
+                  <div class="wa-bubble-text">Your message preview here</div>
+                </div>
+                <div class="wa-bubble-time" id="phonePreviewTime">12:00</div>
+              </div>
+            </div>
+            <div class="phone-input-row">
+              <div class="bar"></div>
+              <div class="phone-mic-btn">&#127908;</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- CONSOLE -->
+      <section class="glass-panel console-section">
+        <div class="console-header">
+          <div class="console-title-container">
+            <span class="console-dot"></span>
+            <span class="console-title">wazoneindia-console.log</span>
+          </div>
+          <div class="console-actions">
+            <button class="console-btn" onclick="clearConsole()">Clear Console</button>
+          </div>
+        </div>
+        <div class="console-body" id="consoleBody"></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- TOAST -->
+  <div id="toast" class="hidden toast"></div>
+
+  <script>
+    const BASE = 'http://localhost:8000';
+    let currentSession = '';
+    let activeFormat = 'text';
+    let activeMainTab = 'single';
+    let buttons = [{type:'quick_reply',id:'btn_1',text:'Yes, Interested!'},{type:'cta_url',text:'Visit Website',url:'https://wazoneindia.com'}];
+    let sections = [{title:'Services',rows:[{title:'Web Development',description:'PHP & Node.js',rowId:'svc_web'},{title:'WhatsApp Automation',description:'Bulk sender solutions',rowId:'svc_wa'}]}];
+    let pollOptions = ['Basic Plan','Developer Pro','Enterprise Cloud'];
+    let carouselCards = [
+      {imageUrl:'https://images.unsplash.com/photo-1557804506-669a67965ba0?q=80&w=600&auto=format&fit=crop',title:'Premium Product A',body:'Special limited offer',buttons:[{text:'Buy Now',id:'buy_a'},{text:'View Demo',id:'demo_a'}]},
+      {imageUrl:'https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=600&auto=format&fit=crop',title:'Enterprise Product B',body:'Advanced automation package',buttons:[{text:'Get Package',id:'buy_b'}]}
+    ];
+    let templates = [];
+    let logs = [];
+    let isSending = false;
+    let bulkRunning = false;
+    let bulkStopFlag = false;
+    let toastTimer = null;
+    let statusInterval = null;
+
+    // --- DEVICE MANAGEMENT ---
+    let devicePollTimer = null;
+    let activeSessionDevice = null;
+
+    let visibleQrSessions = {}; // Track which sessions have QR visible
+
+    function renderDeviceCard(s) {
+      const isActive = activeSessionDevice === s.sessionId;
+      const isConnected = s.connected;
+      const statusClass = isConnected ? 'connected' : (s.status === 'qr' ? 'waiting' : 'disconnected');
+      const statusLabel = isConnected ? 'Connected' : (s.status === 'qr' ? 'QR Ready' : (s.status === 'uninitialized' ? 'Not Init' : 'Disconnected'));
+      const statusColor = isConnected ? 'var(--color-success)' : (s.status === 'qr' ? 'var(--color-warning)' : 'var(--color-muted)');
+      const phoneDisplay = s.phoneNumber ? s.phoneNumber.replace(/(\d{5})(\d{5})/, '$1 $2') : '';
+      const qrVisible = visibleQrSessions[s.sessionId] ? '' : 'display:none;';
+      return '<div class="device-card" data-session="'+escHtml(s.sessionId)+'" style="border:1px solid '+(isActive?'var(--accent-wa)':'var(--color-border)')+';border-radius:var(--radius-md);padding:.65rem;background:'+(isActive?'rgba(18,140,126,.08)':'rgba(27,35,54,.5)')+';cursor:pointer;transition:all var(--transition-fast);'+(isActive?'box-shadow:0 0 12px rgba(18,140,126,.15)':'')+'" onclick="selectDevice(\''+escHtml(s.sessionId)+'\')">'+
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.25rem">'+
+          '<div style="display:flex;align-items:center;gap:.35rem;font-size:.78rem;font-weight:600;font-family:var(--font-heading);max-width:70%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+
+            '<span class="status-dot '+statusClass+'" style="width:6px;height:6px;flex-shrink:0"></span>'+
+            '<span>'+escHtml(s.sessionId)+'</span>'+
+          '</div>'+
+          '<span style="font-size:.6rem;color:'+statusColor+';font-weight:700;text-transform:uppercase;flex-shrink:0">'+statusLabel+'</span>'+
+        '</div>'+
+        (phoneDisplay ? '<div style="font-size:.68rem;color:var(--color-secondary)">+'+phoneDisplay+(s.pushName?' &middot; '+escHtml(s.pushName):'')+'</div>' : '')+
+        (s.platform ? '<div style="font-size:.6rem;color:var(--color-muted)">'+s.platform+'</div>' : '')+
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:.3rem;margin-top:.4rem">'+
+          '<button class="console-btn" style="justify-content:center;padding:.2rem .3rem;font-size:.6rem" onclick="event.stopPropagation();qrBtnClick(\''+escHtml(s.sessionId)+'\')">&#128247; QR</button>'+
+          '<button class="console-btn" style="justify-content:center;padding:.2rem .3rem;font-size:.6rem" onclick="event.stopPropagation();reconnectDevice(\''+escHtml(s.sessionId)+'\')">&#128260; Reconn</button>'+
+          '<button class="console-btn" style="justify-content:center;padding:.2rem .3rem;font-size:.6rem;color:var(--color-warning)" onclick="event.stopPropagation();disconnectDevice(\''+escHtml(s.sessionId)+'\')">&#128682; Discnn</button>'+
+          '<button class="console-btn" style="justify-content:center;padding:.2rem .3rem;font-size:.6rem;color:var(--color-error)" onclick="event.stopPropagation();removeDevice(\''+escHtml(s.sessionId)+'\')">&#128465; Remove</button>'+
+        '</div>'+
+        '<div class="device-qr-wrap" id="qr-'+s.sessionId+'" style="'+qrVisible+'margin-top:.5rem;text-align:center;border-top:1px solid var(--color-border);padding-top:.5rem">'+
+          '<img class="device-qr-image" id="qrimg-'+s.sessionId+'" style="width:140px;height:140px;image-rendering:pixelated;border-radius:var(--radius-sm);background:white;padding:4px;display:none">'+
+          '<div style="font-size:.6rem;color:var(--color-muted);margin-top:.25rem" id="qrmsg-'+s.sessionId+'">Fetching QR code...</div>'+
+        '</div>'+
+      '</div>';
+    }
+
+    function renderDeviceCards(sessions) {
+      const list = document.getElementById('deviceList');
+      if (!sessions || sessions.length === 0) {
+        list.innerHTML = '<div style="padding:1rem;text-align:center;font-size:.72rem;color:var(--color-muted)">No devices found. Add one above.</div>';
+        return;
+      }
+      // Save which QRs are visible before re-render
+      sessions.forEach(s => {
+        const wrap = document.getElementById('qr-'+s.sessionId);
+        if (wrap && wrap.style.display !== 'none') {
+          visibleQrSessions[s.sessionId] = true;
+        }
+      });
+      list.innerHTML = sessions.map(s => renderDeviceCard(s)).join('');
+      updateDeviceSelector(sessions);
+      if (!activeSessionDevice && sessions.length > 0) {
+        selectDevice(sessions[0].sessionId);
+      }
+    }
+
+    function updateDeviceSelector(sessions) {
+      const sel = document.getElementById('send-device-select');
+      if (!sessions || sessions.length === 0) {
+        sel.innerHTML = '<option value="">No devices</option>';
+        return;
+      }
+      sel.innerHTML = sessions.map(s => {
+        const label = s.phoneNumber ? s.sessionId+' (+'+s.phoneNumber.replace(/:.*/,'')+')' : s.sessionId;
+        const conn = s.connected ? '🟢' : '🔴';
+        return '<option value="'+s.sessionId+'" '+(s.sessionId===activeSessionDevice?'selected':'')+'>'+conn+' '+label+'</option>';
+      }).join('');
+    }
+
+    async function fetchDevices() {
+      const mock = document.getElementById('mockMode').checked;
+      if (mock) {
+        const mockSessions = [{sessionId:'test-session',connected:true,status:'connected',phoneNumber:'919843350000',pushName:'Mock',platform:'mock'}];
+        renderDeviceCards(mockSessions);
+        return mockSessions;
+      }
+      try {
+        const res = await fetch(BASE + '/api/sessions');
+        const data = await res.json();
+        if (data.success && data.sessions) {
+          renderDeviceCards(data.sessions);
+          return data.sessions;
+        }
+      } catch (e) {
+        addLog('Device list fetch error: '+e.message, 'error');
+      }
+      return [];
+    }
+
+    function selectDevice(sessionId) {
+      activeSessionDevice = sessionId;
+      currentSession = sessionId;
+      document.querySelectorAll('.device-card').forEach(c => {
+        const isActive = c.dataset.session === sessionId;
+        c.style.borderColor = isActive ? 'var(--accent-wa)' : 'var(--color-border)';
+        c.style.background = isActive ? 'rgba(18,140,126,.08)' : 'rgba(27,35,54,.5)';
+        c.style.boxShadow = isActive ? '0 0 12px rgba(18,140,126,.15)' : 'none';
+      });
+      document.getElementById('send-device-select').value = sessionId;
+      checkStatus();
+      output('device-output', 'Active device: '+sessionId, 'success');
+      addLog('Active device switched to: '+sessionId, 'system');
+    }
+
+    async function addDevice() {
+      const name = document.getElementById('new-session-name').value.trim();
+      if (!name) { showToast('Enter a session name','error'); return; }
+      const btn = document.getElementById('addDeviceBtn');
+      btn.disabled = true; btn.textContent = 'Adding...';
+      try {
+        const res = await fetch(BASE + '/api/connect-qr', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({sessionId: name})
+        });
+        const data = await res.json();
+        await fetchDevices();
+        selectDevice(name);
+        if (data.connected) {
+          showToast('Device connected: '+name, 'success');
+          addLog('Device already connected: '+name, 'success');
+        } else if (data.qrDataUrl) {
+          showToast('Device initialized: '+name, 'success');
+          addLog('Device initialized: '+name+' — QR ready', 'success');
+          visibleQrSessions[name] = true;
+          setTimeout(() => {
+            const qrWrap = document.getElementById('qr-'+name);
+            const qrImg = document.getElementById('qrimg-'+name);
+            const qrMsg = document.getElementById('qrmsg-'+name);
+            if (qrWrap && qrImg) {
+              qrImg.src = data.qrDataUrl;
+              qrImg.style.display = 'block';
+              qrWrap.style.display = 'block';
+              qrMsg.textContent = 'Scan with WhatsApp → Linked Devices → Link a Device';
+              startQrPoll(name);
+            }
+          }, 200);
+        } else {
+          showToast('Device added: '+name, 'success');
+          addLog('Device added: '+name+' — '+ (data.message || ''), 'info');
+        }
+      } catch (e) {
+        output('device-output', 'Error: '+e.message, 'error');
+        showToast('Failed to add device','error');
+        addLog('Add device error: '+e.message, 'error');
+      }
+      btn.disabled = false; btn.textContent = '+ Add';
+    }
+
+    let qrPollTimers = {};
+
+    function startQrPoll(sessionId) {
+      if (qrPollTimers[sessionId]) { clearInterval(qrPollTimers[sessionId]); delete qrPollTimers[sessionId]; }
+      const qrImg = document.getElementById('qrimg-'+sessionId);
+      const qrMsg = document.getElementById('qrmsg-'+sessionId);
+      let connectedTime = 0;
+      qrPollTimers[sessionId] = setInterval(async () => {
+        try {
+          const r = await fetch(BASE + '/api/qr/' + encodeURIComponent(sessionId));
+          const d = await r.json();
+          if (d.connected) {
+            if (connectedTime === 0) {
+              connectedTime = Date.now();
+              qrMsg.textContent = '✅ Connected! Scanning complete.';
+              showToast('Device connected: '+sessionId, 'success');
+            }
+            if (Date.now() - connectedTime > 15000) {
+              clearInterval(qrPollTimers[sessionId]);
+              delete qrPollTimers[sessionId];
+              if (qrImg) qrImg.style.display = 'none';
+              qrMsg.textContent = '✅ Connected';
+              fetchDevices();
+            }
+          } else if (d.qrDataUrl && qrImg) {
+            const newUrl = d.qrDataUrl.split('?')[0]; // strip cache busters
+            const oldUrl = (qrImg.src || '').split('?')[0];
+            if (newUrl !== oldUrl) {
+              qrImg.src = d.qrDataUrl;
+              qrImg.style.display = 'block';
+              qrMsg.textContent = 'Scan with WhatsApp → Linked Devices → Link a Device';
+            }
+          }
+        } catch {}
+      }, 3000);
+    }
+
+    async function fetchAndShowQr(sessionId) {
+      const qrWrap = document.getElementById('qr-'+sessionId);
+      const qrImg = document.getElementById('qrimg-'+sessionId);
+      const qrMsg = document.getElementById('qrmsg-'+sessionId);
+      if (!qrWrap || !qrImg || !qrMsg) return false;
+      qrWrap.style.display = 'block';
+      qrImg.style.display = 'none';
+      qrMsg.textContent = 'Fetching QR...';
+      try {
+        const r = await fetch(BASE + '/api/qr/' + encodeURIComponent(sessionId));
+        const d = await r.json();
+        if (d.connected) {
+          qrMsg.textContent = '✅ Already connected';
+          fetchDevices();
+          return true;
+        }
+        if (d.qrDataUrl) {
+          qrImg.src = d.qrDataUrl;
+          qrImg.style.display = 'block';
+          qrMsg.textContent = 'Scan with WhatsApp → Linked Devices → Link a Device';
+          startQrPoll(sessionId);
+          visibleQrSessions[sessionId] = true;
+          addLog('QR ready for: '+sessionId, 'success');
+          return true;
+        }
+        return false;
+      } catch(e) {
+        qrMsg.textContent = 'Error: '+e.message;
+        return false;
+      }
+    }
+
+    function qrBtnClick(sessionId) {
+      const qrWrap = document.getElementById('qr-'+sessionId);
+      if (!qrWrap) { addLog('QR wrap not found for: '+sessionId, 'error'); return; }
+      // Toggle: if QR is visible, hide it
+      if (qrWrap.style.display !== 'none') {
+        qrWrap.style.display = 'none';
+        delete visibleQrSessions[sessionId];
+        if (qrPollTimers[sessionId]) { clearInterval(qrPollTimers[sessionId]); delete qrPollTimers[sessionId]; }
+        return;
+      }
+      // Show QR: check cache first, then fetch, then init
+      (async () => {
+        const qrMsg = document.getElementById('qrmsg-'+sessionId);
+        const qrImg = document.getElementById('qrimg-'+sessionId);
+        if (qrMsg) qrMsg.textContent = 'Connecting...';
+        if (qrPollTimers[sessionId]) { clearInterval(qrPollTimers[sessionId]); delete qrPollTimers[sessionId]; }
+        // Try fetching existing QR first
+        const found = await fetchAndShowQr(sessionId);
+        if (found) return;
+        // No QR exists — initialize fresh
+        addLog('Initializing QR for: '+sessionId, 'info');
+        if (qrMsg) qrMsg.textContent = 'Generating QR (may take 8s)...';
+        try {
+          const res = await fetch(BASE + '/api/connect-qr', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({sessionId})
+          });
+          const data = await res.json();
+          if (data.connected) {
+            if (qrMsg) qrMsg.textContent = '✅ Already connected';
+            showToast('Device already connected: '+sessionId, 'success');
+            fetchDevices();
+            return;
+          }
+          if (data.qrDataUrl) {
+            if (qrImg) qrImg.src = data.qrDataUrl;
+            if (qrImg) qrImg.style.display = 'block';
+            if (qrMsg) qrMsg.textContent = 'Scan with WhatsApp → Linked Devices → Link a Device';
+            startQrPoll(sessionId);
+            visibleQrSessions[sessionId] = true;
+            addLog('QR ready for: '+sessionId, 'success');
+          } else {
+            if (qrMsg) qrMsg.textContent = data.message || 'Waiting for QR code...';
+            // Start polling anyway — QR may arrive later
+            startQrPoll(sessionId);
+          }
+        } catch(e) {
+          if (qrMsg) qrMsg.textContent = 'Error: '+e.message;
+          addLog('QR error for '+sessionId+': '+e.message, 'error');
+        }
+      })();
+    }
+
+    async function reconnectDevice(sessionId) {
+      if (!sessionId) return;
+      try {
+        const res = await fetch(BASE + '/api/reconnect', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({sessionId})
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('Reconnecting: '+sessionId, 'success');
+          addLog('Reconnecting device: '+sessionId, 'info');
+          setTimeout(() => fetchDevices(), 2000);
+        } else {
+          showToast('Reconnect failed: '+(data.error||'unknown'), 'error');
+        }
+      } catch (e) {
+        showToast('Reconnect error: '+e.message, 'error');
+      }
+    }
+
+    async function disconnectDevice(sessionId) {
+      try {
+        await fetch(BASE + '/api/disconnect', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({sessionId})
+        });
+        showToast('Disconnected: '+sessionId, 'success');
+        addLog('Device disconnected: '+sessionId, 'warning');
+        fetchDevices();
+      } catch (e) {
+        showToast('Disconnect failed: '+e.message, 'error');
+      }
+    }
+
+    async function removeDevice(sessionId) {
+      if (!confirm('Remove session "'+sessionId+'" and all its credentials?')) return;
+      try {
+        await fetch(BASE + '/api/remove-session', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({sessionId})
+        });
+        showToast('Removed: '+sessionId, 'success');
+        addLog('Device removed: '+sessionId, 'warning');
+        if (activeSessionDevice === sessionId) activeSessionDevice = null;
+        fetchDevices();
+      } catch (e) {
+        showToast('Remove failed: '+e.message, 'error');
+      }
+    }
+
+    // --- INIT ---
+    function init() {
+      const saved = localStorage.getItem('wazoneindia_templates');
+      if (saved) { try { templates = JSON.parse(saved); } catch {} }
+      if (templates.length === 0) {
+        templates = [
+          {id:'preset_text',name:'Standard Welcome Text',type:'text',data:{message:'Hello! Thank you for contacting WazoneIndia.'}},
+          {id:'preset_media',name:'Product Catalog Image',type:'image',data:{mediaUrl:'https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?q=80&w=600&auto=format&fit=crop',message:'Check out our catalog!',mediaType:'image'}},
+          {id:'preset_button',name:'Interactive Quick CTA',type:'button',data:{text:'New offer available today!',footer:'WazoneIndia',buttons:[{type:'quick_reply',id:'yes',text:'Yes, Interested!'},{type:'cta_url',text:'Visit',url:'https://wazoneindia.com'}]}},
+          {id:'preset_list',name:'Services Options Menu',type:'list',data:{text:'Please review our services',footer:'WazoneIndia',title:'Our Solutions',buttonText:'View Options',sections:[{title:'Development',rows:[{title:'Web Dev',description:'PHP & Node.js',rowId:'svc_web'}]}]}},
+          {id:'preset_poll',name:'Live Opinion Poll',type:'poll',data:{name:'Which plan fits best?',values:['Basic','Pro','Enterprise'],selectableCount:1}},
+          {id:'preset_carousel',name:'Multi-Product Deck',type:'carousel',data:{footer:'WazoneIndia Deck',cards:[{imageUrl:'',title:'Product A',body:'Description',buttons:[{text:'Buy',id:'buy_a'}]},{imageUrl:'',title:'Product B',body:'Description',buttons:[{text:'Buy',id:'buy_b'}]}]}},
+          {id:'preset_doc',name:'PDF Settlement Statement',type:'document',data:{mediaUrl:'https://storage.example.com/settlement.pdf',message:'Your payout settlement is attached.',fileName:'Settlement_Statement.pdf'}}
+        ];
+        saveTemplates();
+      }
+      renderTemplates();
+      renderButtons();
+      renderSections();
+      renderPollOptions();
+      renderCards();
+      fetchDevices();
+      devicePollTimer = setInterval(fetchDevices, 10000);
+    }
+
+    // --- TOAST ---
+    function showToast(msg, type) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.className = 'toast ' + type;
+      el.classList.remove('hidden');
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.classList.add('hidden'), 3500);
+    }
+
+    // --- CONSOLE ---
+    function addLog(text, type) {
+      const time = new Date().toLocaleTimeString();
+      const el = document.getElementById('consoleBody');
+      const line = document.createElement('div');
+      line.className = 'console-line';
+      line.innerHTML = '<span class="console-ts">[' + time + ']</span><span class="console-text ' + type + '">' + text.replace(/</g,'&lt;') + '</span>';
+      el.appendChild(line);
+      el.scrollTop = el.scrollHeight;
+    }
+
+    function clearConsole() {
+      document.getElementById('consoleBody').innerHTML = '';
+      addLog('Console cleared.', 'system');
+    }
+
+    // --- STATUS ---
+    function setStatus(connected, text) {
+      const pill = document.getElementById('statusPill');
+      const dot = document.getElementById('statusDot');
+      const txt = document.getElementById('statusText');
+      if (connected) {
+        pill.className = 'connection-pill connected';
+        dot.className = 'status-dot connected';
+        txt.textContent = text || 'Instance: Active';
+      } else {
+        pill.className = 'connection-pill disconnected';
+        dot.className = 'status-dot disconnected';
+        txt.textContent = text || 'Instance: Disconnected';
+      }
+    }
+
+    async function checkStatus() {
+      if (!currentSession) return;
+      const mock = document.getElementById('mockMode').checked;
+      if (mock) {
+        setStatus(true, 'Active (MOCK)');
+        return;
+      }
+      try {
+        const res = await fetch(BASE + '/api/check-status/' + encodeURIComponent(currentSession));
+        const data = await res.json();
+        if (data.connected) {
+          setStatus(true, 'Active: '+data.phoneNumber?.split(':')[0]||currentSession);
+          updateConnectionInfo(data);
+        addLog('Status: '+currentSession+' connected', 'success');
+        } else {
+          setStatus(false, currentSession+' disconnected');
+          addLog('Status: '+currentSession+' disconnected', 'warning');
+        }
+      } catch (e) {
+        setStatus(false, currentSession+' error');
+        addLog('Status check error: ' + e.message, 'error');
+      }
+    }
+
+    // --- HTML ESCAPE ---
+    function escHtml(s) {
+      if (!s) return '';
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // --- OUTPUT HELPER ---
+    function output(elId, msg, type) {
+      const el = typeof elId === 'string' ? document.getElementById(elId) : elId;
+      el.textContent = msg;
+      el.className = 'output-box ' + (type||'info');
+    }
+
+    // --- MAIN TAB ---
+    function setMainTab(tab) {
+      activeMainTab = tab;
+      document.querySelectorAll('.panel-tabs button').forEach(b => b.classList.remove('active'));
+      document.getElementById('tab-' + tab).classList.add('active');
+      document.getElementById('singleRecipientSection').classList.toggle('hidden', tab !== 'single');
+      document.getElementById('bulkSection').classList.toggle('hidden', tab !== 'bulk');
+      document.getElementById('sendBtn').classList.toggle('hidden', tab !== 'single');
+      document.getElementById('bulkStartBtn').classList.toggle('hidden', tab !== 'bulk');
+      document.getElementById('bulkStopBtn').classList.toggle('hidden', tab !== 'bulk');
+    }
+
+    function updateConnectionInfo(data) {
+      const el = document.getElementById('connection-info');
+      if (el) {
+        el.classList.remove('hidden');
+        document.getElementById('info-session').textContent = data.sessionId || '-';
+        document.getElementById('info-phone').textContent = data.phoneNumber || '-';
+        document.getElementById('info-jid').textContent = data.jid || '-';
+        document.getElementById('info-platform').textContent = data.platform || '-';
+      }
+    }
+
+    // --- TYPE TAB ---
+    function setType(type) {
+      activeFormat = type;
+      document.querySelectorAll('.format-tab-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('type-' + type).classList.add('active');
+      ['text-fields','image-fields','document-fields','button-fields','list-fields','poll-fields','carousel-fields'].forEach(id => {
+        document.getElementById(id).classList.toggle('hidden', !id.startsWith(type));
+      });
+      updatePhonePreview();
+    }
+
+    // --- BUTTONS BUILDER ---
+    function renderButtons() {
+      const list = document.getElementById('buttonList');
+      const empty = document.getElementById('btnEmpty');
+      if (buttons.length === 0) { list.innerHTML = ''; empty.classList.remove('hidden'); return; }
+      empty.classList.add('hidden');
+      list.innerHTML = buttons.map((b,i) => `
+        <div class="nested-card" data-btnidx="${i}">
+          <button class="nested-del" onclick="removeBtn(${i})">&#10005;</button>
+          <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap">
+            <button class="format-tab-btn ${b.type==='quick_reply'?'active':''}" onclick="updateBtnType(${i},'quick_reply')" style="font-size:.65rem;padding:3px 8px">&#128172; Quick Reply</button>
+            <button class="format-tab-btn ${b.type==='cta_call'?'active':''}" onclick="updateBtnType(${i},'cta_call')" style="font-size:.65rem;padding:3px 8px">&#9742; Call Phone</button>
+            <button class="format-tab-btn ${b.type==='cta_url'?'active':''}" onclick="updateBtnType(${i},'cta_url')" style="font-size:.65rem;padding:3px 8px">&#128279; Open URL</button>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Button Label</label>
+            <input class="form-input" value="${b.text.replace(/"/g,'&quot;')}" oninput="updateBtn(${i},'text',this.value)">
+          </div>
+          ${b.type === 'quick_reply' ? `<div class="form-group"><label class="form-label">Payload ID</label><input class="form-input" value="${b.id||''}" oninput="updateBtn(${i},'id',this.value)"></div>` : ''}
+          ${b.type === 'cta_call' ? `<div class="form-group"><label class="form-label">Phone Number</label><input class="form-input" value="${b.phone_number||'+919999999999'}" oninput="updateBtn(${i},'phone_number',this.value)"></div>` : ''}
+          ${b.type === 'cta_url' ? `<div class="form-group"><label class="form-label">URL</label><input class="form-input" value="${b.url||'https://'}" oninput="updateBtn(${i},'url',this.value)"></div>` : ''}
+        </div>
+      `).join('');
+    }
+
+    function addBtn() {
+      if (buttons.length >= 3) { showToast('Maximum 3 buttons', 'error'); return; }
+      buttons.push({type:'quick_reply',id:'btn_'+Date.now(),text:'New button'});
+      renderButtons();
+      updatePhonePreview();
+    }
+    function removeBtn(i) { buttons.splice(i,1); renderButtons(); updatePhonePreview(); }
+    function updateBtn(i,field,val) { buttons[i][field]=val; updatePhonePreview(); }
+    function updateBtnType(i,type) {
+      try {
+        const b = buttons[i];
+        if (!b) return;
+        if (type === 'quick_reply') {
+          if (b.type === 'quick_reply') return;
+          buttons[i] = {type:'quick_reply',id:'btn_'+Date.now(),text:b.text};
+        } else if (type === 'cta_call') {
+          if (b.type === 'cta_call') return;
+          buttons[i] = {type:'cta_call',text:b.text,phone_number:'+919999999999'};
+        } else if (type === 'cta_url') {
+          if (b.type === 'cta_url') return;
+          buttons[i] = {type:'cta_url',text:b.text,url:'https://'};
+        }
+        renderButtons();
+        updatePhonePreview();
+      } catch(e) { console.error('Button type error:', e); }
+    }
+
+    // --- SECTIONS BUILDER ---
+    function renderSections() {
+      const list = document.getElementById('sectionList');
+      const empty = document.getElementById('sectionEmpty');
+      if (sections.length === 0) { list.innerHTML = ''; empty.classList.remove('hidden'); return; }
+      empty.classList.add('hidden');
+      list.innerHTML = sections.map((s,si) => `
+        <div class="nested-card" style="border-left:3px solid var(--accent-wa)">
+          <button class="nested-del" onclick="removeSection(${si})">&#10005;</button>
+          <div class="form-group"><label class="form-label">Section Title</label><input class="form-input" value="${s.title.replace(/"/g,'&quot;')}" oninput="updateSectionTitle(${si},this.value)"></div>
+          <div class="nested-builder" style="background:rgba(0,0,0,.1)">
+            <div class="nested-header"><span class="nested-title" style="font-size:.65rem">Rows</span><button class="btn-secondary-outline" style="padding:.2rem .4rem" onclick="addRow(${si})">+ Add Row</button></div>
+            ${s.rows.map((r,ri) => `
+              <div class="nested-card" style="padding:.5rem;background:rgba(255,255,255,.01)">
+                <button class="nested-del" style="top:.25rem;right:.25rem" onclick="removeRow(${si},${ri})">&#10005;</button>
+                <div class="form-grid-2" style="gap:.35rem">
+                  <div class="form-group" style="margin-bottom:.2rem"><label class="form-label" style="font-size:.58rem">Title</label><input class="form-input" style="padding:.35rem .5rem;font-size:.7rem" value="${r.title.replace(/"/g,'&quot;')}" oninput="updateRow(${si},${ri},'title',this.value)"></div>
+                  <div class="form-group" style="margin-bottom:.2rem"><label class="form-label" style="font-size:.58rem">Description</label><input class="form-input" style="padding:.35rem .5rem;font-size:.7rem" value="${r.description.replace(/"/g,'&quot;')}" oninput="updateRow(${si},${ri},'description',this.value)"></div>
+                </div>
+                <div class="form-group" style="margin-bottom:0"><label class="form-label" style="font-size:.58rem">Row ID</label><input class="form-input" style="padding:.35rem .5rem;font-size:.7rem" value="${r.rowId||''}" oninput="updateRow(${si},${ri},'rowId',this.value)"></div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function addSection() { sections.push({title:'New Section',rows:[]}); renderSections(); }
+    function removeSection(i) { sections.splice(i,1); renderSections(); }
+    function updateSectionTitle(i,val) { sections[i].title = val; }
+    function addRow(si) { sections[si].rows.push({title:'New Option',description:'Description',rowId:'row_'+Date.now()}); renderSections(); }
+    function removeRow(si,ri) { sections[si].rows.splice(ri,1); renderSections(); }
+    function updateRow(si,ri,field,val) { sections[si].rows[ri][field] = val; }
+
+    // --- POLL OPTIONS ---
+    function renderPollOptions() {
+      const list = document.getElementById('pollOptionList');
+      const empty = document.getElementById('pollEmpty');
+      if (pollOptions.length === 0) { list.innerHTML = ''; empty.classList.remove('hidden'); return; }
+      empty.classList.add('hidden');
+      list.innerHTML = pollOptions.map((o,i) => `
+        <div style="display:flex;gap:.35rem;align-items:center;margin-bottom:.35rem">
+          <input class="form-input" value="${o.replace(/"/g,'&quot;')}" oninput="updatePollOption(${i},this.value)" placeholder="Option ${i+1}">
+          <button class="template-delete-btn" onclick="removePollOption(${i})" style="padding:.4rem">&#10005;</button>
+        </div>
+      `).join('');
+    }
+    function addPollOption() { pollOptions.push('Option '+(pollOptions.length+1)); renderPollOptions(); }
+    function removePollOption(i) { if (pollOptions.length <= 2) { showToast('At least 2 options required','error'); return; } pollOptions.splice(i,1); renderPollOptions(); }
+    function updatePollOption(i,val) { pollOptions[i] = val; }
+
+    // --- CAROUSEL CARDS ---
+    function renderCards() {
+      const list = document.getElementById('cardList');
+      const empty = document.getElementById('cardEmpty');
+      if (carouselCards.length === 0) { list.innerHTML = ''; empty.classList.remove('hidden'); return; }
+      empty.classList.add('hidden');
+      list.innerHTML = carouselCards.map((c,ci) => `
+        <div class="nested-card" style="border-left:3px solid var(--color-purple)">
+          <button class="nested-del" onclick="removeCard(${ci})">&#10005;</button>
+          <span class="template-type-badge" style="color:var(--color-purple)">Card #${ci+1}</span>
+          <div class="form-grid-2" style="margin-top:.35rem">
+            <div class="form-group"><label class="form-label">Image URL</label><input class="form-input" value="${c.imageUrl||''}" oninput="updateCard(${ci},'imageUrl',this.value)"></div>
+            <div class="form-group"><label class="form-label">Title</label><input class="form-input" value="${c.title.replace(/"/g,'&quot;')}" oninput="updateCard(${ci},'title',this.value)"></div>
+          </div>
+          <div class="form-group"><label class="form-label">Body</label><textarea class="form-textarea" style="min-height:40px" oninput="updateCard(${ci},'body',this.value)">${c.body||''}</textarea></div>
+          <div class="nested-builder" style="background:rgba(0,0,0,.1)">
+            <div class="nested-header"><span class="nested-title" style="font-size:.65rem">Card Buttons</span><button class="btn-secondary-outline" style="padding:.2rem .4rem" onclick="addCardBtn(${ci})">+ Add Button</button></div>
+            ${c.buttons.map((b,bi) => `
+              <div style="display:flex;gap:.35rem;align-items:center;margin-bottom:.25rem">
+                <input class="form-input" style="padding:.35rem .5rem;font-size:.7rem" value="${b.text.replace(/"/g,'&quot;')}" oninput="updateCardBtn(${ci},${bi},this.value)" placeholder="Button Label">
+                <button class="template-delete-btn" onclick="removeCardBtn(${ci},${bi})">&#10005;</button>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `).join('');
+    }
+    function addCarouselCard() {
+      if (carouselCards.length >= 5) { showToast('Maximum 5 cards','error'); return; }
+      carouselCards.push({imageUrl:'',title:'Product '+(carouselCards.length+1),body:'Description',buttons:[{text:'Buy Now',id:'buy_'+(carouselCards.length+1)}]});
+      renderCards();
+    }
+    function removeCard(i) { if (carouselCards.length <= 1) { showToast('At least 1 card required','error'); return; } carouselCards.splice(i,1); renderCards(); }
+    function updateCard(i,field,val) { 
+      if (field === 'body') carouselCards[i].body = val;
+      else carouselCards[i][field] = val; 
+    }
+    function addCardBtn(ci) {
+      if (carouselCards[ci].buttons.length >= 2) { showToast('Max 2 buttons per card','error'); return; }
+      carouselCards[ci].buttons.push({text:'Click',id:'btn_'+Date.now()});
+      renderCards();
+    }
+    function removeCardBtn(ci,bi) { carouselCards[ci].buttons.splice(bi,1); renderCards(); }
+    function updateCardBtn(ci,bi,val) { carouselCards[ci].buttons[bi].text = val; }
+
+    // --- TEMPLATES ---
+    function saveTemplates() {
+      localStorage.setItem('wazoneindia_templates', JSON.stringify(templates));
+    }
+    function renderTemplates() {
+      const el = document.getElementById('templateList');
+      el.innerHTML = templates.map(t => `
+        <div class="template-item" onclick="loadTemplate('${t.id}')">
+          <div class="template-info"><span class="template-name">${t.name}</span><span class="template-type-badge">${t.type}</span></div>
+          <button class="template-delete-btn" onclick="event.stopPropagation();deleteTemplate('${t.id}')">&#10005;</button>
+        </div>
+      `).join('');
+    }
+    function saveTemplate() {
+      const name = document.getElementById('newTemplateName').value.trim();
+      if (!name) { showToast('Enter a template name','error'); return; }
+      const data = getCurrentFormData();
+      const t = {id:'tmpl_'+Date.now(),name,type:activeFormat,data};
+      templates.push(t);
+      saveTemplates();
+      renderTemplates();
+      document.getElementById('newTemplateName').value = '';
+      showToast('Template saved!','success');
+    }
+    function deleteTemplate(id) {
+      templates = templates.filter(t => t.id !== id);
+      saveTemplates();
+      renderTemplates();
+      showToast('Template deleted','success');
+    }
+    function loadTemplate(id) {
+      const t = templates.find(t => t.id === id);
+      if (!t) return;
+      setType(t.type);
+      const d = t.data;
+      switch (t.type) {
+        case 'text': document.getElementById('send-message').value = d.message||''; break;
+        case 'image': document.getElementById('send-mediaUrl').value = d.mediaUrl||''; document.getElementById('send-caption').value = d.message||''; document.getElementById('send-mediaType').value = d.mediaType||'image'; break;
+        case 'document': document.getElementById('doc-mediaUrl').value = d.mediaUrl||''; document.getElementById('doc-caption').value = d.message||''; document.getElementById('doc-fileName').value = d.fileName||'document.pdf'; break;
+        case 'button': document.getElementById('btn-mediaUrl').value = d.mediaUrl||''; document.getElementById('btn-text').value = d.text||''; document.getElementById('btn-footer').value = d.footer||''; buttons = d.buttons||[]; renderButtons(); break;
+        case 'list': document.getElementById('list-mediaUrl').value = d.mediaUrl||''; document.getElementById('list-text').value = d.text||''; document.getElementById('list-footer').value = d.footer||''; document.getElementById('list-title').value = d.title||''; document.getElementById('list-buttonText').value = d.buttonText||'View Options'; sections = d.sections||[]; renderSections(); break;
+        case 'poll': document.getElementById('poll-mediaUrl').value = d.mediaUrl||''; document.getElementById('poll-name').value = d.name||''; document.getElementById('poll-count').value = d.selectableCount||1; pollOptions = d.values||[]; renderPollOptions(); break;
+        case 'carousel': document.getElementById('carousel-footer').value = d.footer||''; carouselCards = d.cards||[]; renderCards(); break;
+      }
+      updatePhonePreview();
+      showToast('Loaded: '+t.name,'success');
+    }
+    function getCurrentFormData() {
+      switch (activeFormat) {
+        case 'text': return {message: document.getElementById('send-message').value};
+        case 'image': return {mediaUrl: document.getElementById('send-mediaUrl').value, message: document.getElementById('send-caption').value, mediaType: document.getElementById('send-mediaType').value};
+        case 'document': return {mediaUrl: document.getElementById('doc-mediaUrl').value, message: document.getElementById('doc-caption').value, fileName: document.getElementById('doc-fileName').value};
+        case 'button': return {mediaUrl: document.getElementById('btn-mediaUrl').value, text: document.getElementById('btn-text').value, footer: document.getElementById('btn-footer').value, buttons};
+        case 'list': return {mediaUrl: document.getElementById('list-mediaUrl').value, text: document.getElementById('list-text').value, footer: document.getElementById('list-footer').value, title: document.getElementById('list-title').value, buttonText: document.getElementById('list-buttonText').value, sections};
+        case 'poll': return {mediaUrl: document.getElementById('poll-mediaUrl').value, name: document.getElementById('poll-name').value, values: pollOptions, selectableCount: parseInt(document.getElementById('poll-count').value)||1};
+        case 'carousel': return {footer: document.getElementById('carousel-footer').value, cards: carouselCards};
+      }
+    }
+
+    // --- BUILD PAYLOAD ---
+    function buildPayload(number) {
+      const base = {sessionId: currentSession, number, type: activeFormat};
+      switch (activeFormat) {
+        case 'text': return {...base, message: document.getElementById('send-message').value};
+        case 'image': return {...base, message: document.getElementById('send-caption').value, mediaUrl: document.getElementById('send-mediaUrl').value};
+        case 'document': return {...base, message: document.getElementById('doc-caption').value, mediaUrl: document.getElementById('doc-mediaUrl').value, fileName: document.getElementById('doc-fileName').value};
+        case 'button': return {...base, options: {mediaUrl: document.getElementById('btn-mediaUrl').value||undefined, text: document.getElementById('btn-text').value, footer: document.getElementById('btn-footer').value||undefined, buttons}};
+        case 'list': return {...base, options: {mediaUrl: document.getElementById('list-mediaUrl').value||undefined, text: document.getElementById('list-text').value, footer: document.getElementById('list-footer').value||undefined, title: document.getElementById('list-title').value||undefined, buttonText: document.getElementById('list-buttonText').value, sections}};
+        case 'poll': return {...base, options: {mediaUrl: document.getElementById('poll-mediaUrl').value||undefined, name: document.getElementById('poll-name').value, values: pollOptions.filter(v=>v.trim()), selectableCount: parseInt(document.getElementById('poll-count').value)||1}};
+        case 'carousel': return {...base, options: {footer: document.getElementById('carousel-footer').value||undefined, cards: carouselCards}};
+      }
+    }
+
+    // --- SEND ---
+    async function sendMessage() {
+      if (isSending) return;
+      const number = document.getElementById('send-number').value.trim();
+      if (!number) { output('send-output','Recipient number is required','error'); return; }
+      const deviceSel = document.getElementById('send-device-select');
+      const selectedSession = deviceSel.value || currentSession;
+      if (!selectedSession) { output('send-output','No device selected','error'); return; }
+      currentSession = selectedSession;
+      isSending = true;
+      document.getElementById('sendBtn').disabled = true;
+      const payload = buildPayload(number);
+      payload.sessionId = currentSession;
+      addLog('Preparing outbound request to '+number+' via '+currentSession+'...', 'info');
+      addLog('[payload] '+JSON.stringify(payload,null,2), 'payload');
+      const mock = document.getElementById('mockMode').checked;
+      try {
+        let data;
+        if (mock) {
+          await new Promise(r => setTimeout(r, 800));
+          data = {success:true,messageId:'MOCK_'+Math.floor(Math.random()*100000000)};
+        } else {
+          const res = await fetch(BASE + '/api/send', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify(payload)
+          });
+          data = await res.json();
+        }
+        if (data.success) {
+          output('send-output','Message sent! ID: '+data.messageId, 'success');
+          addLog('API success: '+JSON.stringify(data), 'success');
+          showToast('WhatsApp message sent!', 'success');
+        } else {
+          output('send-output','Error: '+(data.error||'Unknown'), 'error');
+          addLog('API error: '+JSON.stringify(data), 'error');
+          showToast('Failed to send message', 'error');
+        }
+      } catch(e) {
+        output('send-output','Error: '+e.message, 'error');
+        addLog('Network error: '+e.message, 'error');
+        showToast('Network error', 'error');
+      }
+      isSending = false;
+      document.getElementById('sendBtn').disabled = false;
+    }
+
+    // --- BULK ---
+    async function startBulk() {
+      if (bulkRunning) return;
+      const deviceSel = document.getElementById('send-device-select');
+      const selectedSession = deviceSel.value || currentSession;
+      if (!selectedSession) { showToast('No device selected','error'); return; }
+      currentSession = selectedSession;
+      const raw = document.getElementById('bulkNumbers').value.split(/[\n,]/).map(n=>n.trim()).filter(n=>n);
+      if (raw.length === 0) { showToast('No numbers found','error'); return; }
+      bulkRunning = true; bulkStopFlag = false;
+      const total = raw.length;
+      let sent = 0, failed = 0;
+      document.getElementById('bulkTotal').textContent = total;
+      document.getElementById('bulkSuccess').textContent = '0';
+      document.getElementById('bulkFailed').textContent = '0';
+      document.getElementById('bulkProgressBar').style.width = '0%';
+      document.getElementById('bulkProgressPct').textContent = '0%';
+      document.getElementById('bulkStartBtn').classList.add('hidden');
+      document.getElementById('bulkStopBtn').classList.remove('hidden');
+      const delay = parseInt(document.getElementById('bulkDelay').value) || 3;
+      addLog('Bulk queue started. Targets: '+total+', Delay: '+delay+'s', 'system');
+      for (let i = 0; i < total; i++) {
+        if (bulkStopFlag) { addLog('Bulk paused by user.','warning'); break; }
+        const num = raw[i];
+        document.getElementById('bulkCurrent').textContent = 'Sending to: '+num;
+        addLog('['+(i+1)+'/'+total+'] Sending to '+num+'...', 'info');
+        const mock = document.getElementById('mockMode').checked;
+        try {
+          let data;
+          if (mock) {
+            await new Promise(r => setTimeout(r, 500));
+            data = {success:true};
+          } else {
+            const res = await fetch(BASE + '/api/send', {
+              method: 'POST',
+              headers: {'Content-Type':'application/json'},
+              body: JSON.stringify(buildPayload(num))
+            });
+            data = await res.json();
+          }
+          if (data.success) { sent++; addLog('Sent to '+num,'success'); }
+          else { failed++; addLog('Failed for '+num+': '+JSON.stringify(data),'error'); }
+        } catch(e) { failed++; addLog('Error for '+num+': '+e.message,'error'); }
+        const pct = Math.round(((i+1)/total)*100);
+        document.getElementById('bulkSuccess').textContent = sent;
+        document.getElementById('bulkFailed').textContent = failed;
+        document.getElementById('bulkProgressBar').style.width = pct+'%';
+        document.getElementById('bulkProgressPct').textContent = pct+'%';
+        if (i < total-1 && !bulkStopFlag) await new Promise(r => setTimeout(r, delay*1000));
+      }
+      bulkRunning = false;
+      document.getElementById('bulkCurrent').textContent = '';
+      document.getElementById('bulkStartBtn').classList.remove('hidden');
+      document.getElementById('bulkStopBtn').classList.add('hidden');
+      addLog('Bulk finished. Sent: '+sent+', Failed: '+failed, 'system');
+      showToast('Bulk campaign complete!', 'success');
+    }
+    function stopBulk() { bulkStopFlag = true; bulkRunning = false; document.getElementById('bulkStartBtn').classList.remove('hidden'); document.getElementById('bulkStopBtn').classList.add('hidden'); addLog('Bulk stopping...','warning'); }
+
+    // --- COPY CURL ---
+    function copyCurl() {
+      const number = document.getElementById('send-number').value.trim() || '91XXXXXXXXXX';
+      const payload = buildPayload(number);
+      const curl = 'curl -X POST http://localhost:3000/api/send \\\n  -H "Content-Type: application/json" \\\n  -d \''+JSON.stringify(payload,null,2)+'\'';
+      navigator.clipboard.writeText(curl);
+      showToast('cURL copied to clipboard!', 'success');
+      addLog('cURL command copied.','info');
+    }
+
+    // --- PHONE PREVIEW ---
+    function updatePhonePreview() {
+      const el = document.getElementById('phonePreviewContent');
+      const time = document.getElementById('phonePreviewTime');
+      const now = new Date();
+      time.textContent = now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
+      let html = '';
+      switch (activeFormat) {
+        case 'text':
+          html = '<div class="wa-bubble-text">'+(document.getElementById('send-message').value||'Your message')+'</div>';
+          break;
+        case 'image':
+          const url = document.getElementById('send-mediaUrl').value;
+          if (url) html += '<img src="'+url+'" class="wa-bubble-image" onerror="this.style.display=\'none\'">';
+          html += '<div class="wa-bubble-text">'+(document.getElementById('send-caption').value||'')+'</div>';
+          break;
+        case 'document':
+          const docUrl = document.getElementById('doc-mediaUrl').value;
+          const docName = document.getElementById('doc-fileName').value || 'document.pdf';
+          html += '<div style="background:#1f2c34;border-radius:6px;padding:.45rem;display:flex;gap:.4rem;margin-bottom:4px"><div style="flex-shrink:0;width:28px;height:28px;background:var(--accent-wa);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:.6rem;color:white">📄</div><div style="flex:1;min-width:0"><div style="font-size:.6rem;font-weight:600;color:white;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+docName+'</div><div style="font-size:.5rem;color:#8696a0">Document</div></div></div>';
+          html += '<div class="wa-bubble-text">'+(document.getElementById('doc-caption').value||'')+'</div>';
+          break;
+        case 'button':
+          const btnMedia = document.getElementById('btn-mediaUrl').value;
+          if (btnMedia) html += '<img src="'+btnMedia+'" class="wa-bubble-image" onerror="this.style.display=\'none\'">';
+          html += '<div class="wa-bubble-text">'+(document.getElementById('btn-text').value||'')+'</div>';
+          if (document.getElementById('btn-footer').value) html += '<div class="wa-bubble-footer">'+document.getElementById('btn-footer').value+'</div>';
+          html += '<div class="wa-bubble-buttons">'+buttons.map(b => '<button class="wa-btn">'+(b.type==='cta_call'?'&#9742; ':'')+(b.type==='cta_url'?'&#128279; ':'')+b.text+'</button>').join('')+'</div>';
+          break;
+        case 'list':
+          const lUrl = document.getElementById('list-mediaUrl').value;
+          if (lUrl) html += '<img src="'+lUrl+'" class="wa-bubble-image" onerror="this.style.display=\'none\'">';
+          if (document.getElementById('list-title').value) html += '<div class="wa-bubble-title">'+document.getElementById('list-title').value+'</div>';
+          html += '<div class="wa-bubble-text">'+(document.getElementById('list-text').value||'')+'</div>';
+          if (document.getElementById('list-footer').value) html += '<div class="wa-bubble-footer">'+document.getElementById('list-footer').value+'</div>';
+          html += '<div class="wa-list-trigger">&#128203; '+(document.getElementById('list-buttonText').value||'View Options')+'</div>';
+          break;
+        case 'poll':
+          const pUrl = document.getElementById('poll-mediaUrl').value;
+          if (pUrl) html += '<img src="'+pUrl+'" class="wa-bubble-image" onerror="this.style.display=\'none\'">';
+          html += '<div class="wa-poll-container"><div class="wa-bubble-title" style="font-size:.65rem">'+(document.getElementById('poll-name').value||'Question')+'</div>';
+          html += pollOptions.filter(o=>o.trim()).map(o => '<div class="wa-poll-option"><span class="wa-poll-radio"></span><span>'+o+'</span></div>').join('');
+          html += '<div style="font-size:.5rem;color:#8696a0;text-align:right;margin-top:2px">Select up to '+(document.getElementById('poll-count').value||1)+'</div></div>';
+          break;
+        case 'carousel':
+          html += '<div class="wa-carousel-container">';
+          if (carouselCards.length === 0) html += '<div style="padding:.75rem;font-size:.6rem;color:#8696a0;background:#1f2c34;border-radius:8px">Add cards</div>';
+          else carouselCards.forEach((c,i) => {
+            html += '<div class="wa-carousel-card"><div class="wa-carousel-card-img" style="background:#2a3942'+(c.imageUrl?';background-image:url('+c.imageUrl+');background-size:cover;background-position:center':'')+'"></div><div class="wa-carousel-card-content"><div class="wa-carousel-card-title">'+c.title+'</div><div class="wa-carousel-card-body">'+c.body+'</div></div>';
+            if (c.buttons.length) html += '<div class="wa-carousel-card-buttons">'+c.buttons.map(b => '<button class="wa-carousel-btn">'+b.text+'</button>').join('')+'</div>';
+            html += '</div>';
+          });
+          html += '</div>';
+          if (document.getElementById('carousel-footer').value) html += '<div class="wa-bubble-footer" style="margin-top:4px">'+document.getElementById('carousel-footer').value+'</div>';
+          break;
+      }
+      el.innerHTML = html;
+    }
+
+    // --- AUTO-UPDATE ---
+    // Auto-update preview on input
+    document.addEventListener('input', function(e) {
+      if (e.target.closest('.composer-section') || e.target.closest('.nested-builder')) {
+        updatePhonePreview();
+      }
+    });
+
+    init();
+  </script>
+</body>
+</html>

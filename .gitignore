@@ -1,0 +1,5 @@
+node_modules/
+.berry-sessions/
+*.db
+.env
+dist/
