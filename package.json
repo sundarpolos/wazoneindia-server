@@ -89,7 +89,8 @@
     "build": "tsc -p tsconfig.build.json",
     "clean": "if exist dist rmdir /s /q dist",
     "prepublishOnly": "npm run build",
-    "start": "node server.js"
+    "start": "node server.js",
+    "postinstall": "node patch-sdk.js"
   },
   "dependencies": {
     "@berrysdk/auth": "0.1.1",
