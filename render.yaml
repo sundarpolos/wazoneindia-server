@@ -2,7 +2,7 @@ services:
   - type: web
     name: wazoneindia
     env: node
-    buildCommand: npm install
+    buildCommand: npm install && npm run build
     startCommand: npm start
     healthCheckPath: /api/sessions
     envVars:
