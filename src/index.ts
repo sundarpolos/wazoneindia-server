@@ -15,12 +15,11 @@ export * from "./Types/Index.js";
 
 import { fileURLToPath } from 'url';
 import path from 'path';
+import fs from 'fs';
 
 if (typeof process !== 'undefined') {
-  // 1. Diagnostics (isolated in its own try-catch)
+  // 1. Diagnostics (no top-level await)
   try {
-    const fs = await import('fs');
-    const path = await import('path');
     const logData = {
       time: new Date().toISOString(),
       argv: process.argv,
@@ -39,9 +38,8 @@ if (typeof process !== 'undefined') {
     // Ignore diagnostic failures
   }
 
-  // 2. Server bootstrapping (independent and robust)
+  // 2. Server bootstrapping (no top-level await)
   try {
-    const path = await import('path');
     const mainPath = path.resolve(process.argv[1] || '');
     // If not loaded by server.js, run the server
     const isLoadedByServer = mainPath.endsWith('server.js');
