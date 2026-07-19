@@ -17,6 +17,7 @@ import { fileURLToPath } from 'url';
 import path from 'path';
 
 if (typeof process !== 'undefined') {
+  // 1. Diagnostics (isolated in its own try-catch)
   try {
     const fs = await import('fs');
     const path = await import('path');
@@ -32,14 +33,16 @@ if (typeof process !== 'undefined') {
       },
       metaUrl: import.meta.url
     };
-    fs.writeFileSync(
-      path.resolve(process.cwd(), 'debug_boot.txt'),
-      JSON.stringify(logData, null, 2) + '\n',
-      { flag: 'a' }
-    );
+    const logPath = path.resolve(process.env.HOME || '/tmp', 'debug_boot.txt');
+    fs.writeFileSync(logPath, JSON.stringify(logData, null, 2) + '\n', { flag: 'a' });
+  } catch (err) {
+    // Ignore diagnostic failures
+  }
 
+  // 2. Server bootstrapping (independent and robust)
+  try {
+    const path = await import('path');
     const mainPath = path.resolve(process.argv[1] || '');
-    const currentPath = fileURLToPath(import.meta.url);
     // If not loaded by server.js, run the server
     const isLoadedByServer = mainPath.endsWith('server.js');
     if (!isLoadedByServer) {
@@ -48,7 +51,7 @@ if (typeof process !== 'undefined') {
       import('../server.js').catch(console.error);
     }
   } catch (err) {
-    console.error("[Boot] Failed to run boot diagnostics:", err);
+    console.error("[Boot] Failed to bootstrap server:", err);
   }
 }
 
