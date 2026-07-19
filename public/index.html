@@ -745,7 +745,7 @@
   <div id="toast" class="hidden toast"></div>
 
   <script>
-    const BASE = 'http://localhost:8000';
+    const BASE = window.location.origin;
     let currentSession = '';
     let activeFormat = 'text';
     let activeMainTab = 'single';
@@ -1092,7 +1092,12 @@
 
     // --- INIT ---
     function init() {
-      const saved = localStorage.getItem('wazoneindia_templates');
+      let saved = null;
+      try {
+        saved = localStorage.getItem('wazoneindia_templates');
+      } catch (e) {
+        console.warn("Storage access denied:", e);
+      }
       if (saved) { try { templates = JSON.parse(saved); } catch {} }
       if (templates.length === 0) {
         templates = [
@@ -1378,7 +1383,11 @@
 
     // --- TEMPLATES ---
     function saveTemplates() {
-      localStorage.setItem('wazoneindia_templates', JSON.stringify(templates));
+      try {
+        localStorage.setItem('wazoneindia_templates', JSON.stringify(templates));
+      } catch (e) {
+        console.warn("Storage access denied:", e);
+      }
     }
     function renderTemplates() {
       const el = document.getElementById('templateList');

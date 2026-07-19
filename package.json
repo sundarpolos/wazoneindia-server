@@ -5,7 +5,7 @@
   "author": "BerrySDK",
   "license": "Apache-2.0",
   "type": "module",
-  "main": "dist/index.js",
+  "main": "server.js",
   "types": "dist/index.d.ts",
   "files": [
     "dist",
