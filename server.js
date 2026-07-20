@@ -1021,8 +1021,8 @@ const server = http.createServer(async (req, res) => {
 
   if (sessionCookie) {
     try {
-      const sessionRow = securityDb.prepare('SELECT id, user_id, revoked, expires_at FROM security_sessions WHERE id = ?').get(sessionCookie);
-      if (sessionRow && sessionRow.revoked === 0 && new Date(sessionRow.expires_at) > new Date()) {
+      const sessionRow = securityDb.prepare('SELECT id, user_id FROM security_sessions WHERE id = ? AND revoked = 0 AND expires_at > ?').get(sessionCookie, new Date().toISOString());
+      if (sessionRow) {
         const userRow = securityDb.prepare('SELECT id, username FROM security_users WHERE id = ?').get(sessionRow.user_id);
         if (userRow) {
           currentUser = { id: userRow.id, username: userRow.username };
