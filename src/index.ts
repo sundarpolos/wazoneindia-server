@@ -18,7 +18,7 @@ import path from 'path';
 import fs from 'fs';
 
 if (typeof process !== 'undefined') {
-  // 1. Diagnostics (no top-level await)
+  // Diagnostics
   try {
     const logData = {
       time: new Date().toISOString(),
@@ -36,20 +36,6 @@ if (typeof process !== 'undefined') {
     fs.writeFileSync(logPath, JSON.stringify(logData, null, 2) + '\n', { flag: 'a' });
   } catch (err) {
     // Ignore diagnostic failures
-  }
-
-  // 2. Server bootstrapping (no top-level await)
-  try {
-    const mainPath = path.resolve(process.argv[1] || '');
-    // If not loaded by server.js, run the server
-    const isLoadedByServer = mainPath.endsWith('server.js');
-    if (!isLoadedByServer) {
-      console.log("[Boot] App not loaded by server.js. Bootstrapping server.js...");
-      // @ts-ignore
-      import('../server.js').catch(console.error);
-    }
-  } catch (err) {
-    console.error("[Boot] Failed to bootstrap server:", err);
   }
 }
 

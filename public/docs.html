@@ -1,0 +1,1475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WazoneIndia - REST API Documentation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --font-heading: 'Outfit', sans-serif;
+      --font-body: 'Plus Jakarta Sans', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+      --bg-primary: #0b0f19;
+      --bg-secondary: #131926;
+      --bg-tertiary: #1b2336;
+      --bg-glass: rgba(19,25,38,.75);
+      --accent-wa: #128c7e;
+      --accent-wa-light: #25d366;
+      --color-primary: #f8fafc;
+      --color-secondary: #94a3b8;
+      --color-muted: #64748b;
+      --color-border: rgba(255,255,255,.08);
+      --color-success: #10b981;
+      --color-error: #f43f5e;
+      --color-warning: #f59e0b;
+      --color-info: #0ea5e9;
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 20px;
+      --transition-fast: .15s ease;
+      --transition-normal: .3s cubic-bezier(.4,0,.2,1);
+      --shadow-md: 0 8px 30px -4px rgba(0,0,0,.4);
+      --shadow-glow: 0 0 25px -5px rgba(37,211,102,.15);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg-primary);
+      color: var(--color-primary);
+      font-family: var(--font-body);
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+      line-height: 1.5;
+    }
+    h1,h2,h3,h4 { font-family: var(--font-heading); font-weight: 600; letter-spacing: -.02em; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg-primary); }
+    ::-webkit-scrollbar-thumb { background: var(--bg-tertiary); border-radius: 4px; }
+
+    .layout-container {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      min-height: 100vh;
+    }
+    @media(max-width: 900px) {
+      .layout-container {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Mobile Menu Header Toggle */
+    .mobile-docs-header {
+      display: none;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--color-border);
+      padding: 0.75rem 1rem;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 60;
+    }
+    .mobile-menu-toggle-btn {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--color-border);
+      color: var(--color-primary);
+      padding: 0.4rem 0.75rem;
+      border-radius: var(--radius-sm);
+      font-family: var(--font-heading);
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    /* Sidebar Navigation */
+    .sidebar-nav {
+      background: var(--bg-secondary);
+      border-right: 1px solid var(--color-border);
+      padding: 1.5rem;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+    @media(max-width: 900px) {
+      .mobile-docs-header {
+        display: flex;
+      }
+      .sidebar-nav {
+        height: auto;
+        position: relative;
+        border-right: none;
+        border-bottom: 1px solid var(--color-border);
+        display: none; /* Collapsed by default on mobile */
+        padding: 1rem;
+      }
+      .sidebar-nav.mobile-open {
+        display: flex !important;
+      }
+      .main-content {
+        padding: 1rem !important;
+        gap: 1.5rem !important;
+      }
+      .docs-title {
+        font-size: 1.5rem !important;
+      }
+      .parameters-table {
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+      }
+      .code-body {
+        font-size: 0.7rem !important;
+        white-space: pre-wrap !important;
+        word-break: break-all !important;
+      }
+      .toast {
+        left: 1rem !important;
+        right: 1rem !important;
+        bottom: 1rem !important;
+        text-align: center;
+      }
+    }
+    .brand-section {
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+      text-decoration: none;
+    }
+    .brand-logo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-md);
+      background: linear-gradient(135deg, var(--accent-wa), var(--accent-wa-light));
+      color: white;
+      font-size: 1.1rem;
+      box-shadow: var(--shadow-glow);
+    }
+    .brand-title h1 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      background: linear-gradient(to right, #fff, #94a3b8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .brand-title span {
+      font-size: .65rem;
+      color: var(--accent-wa-light);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      display: block;
+      margin-top: -2px;
+    }
+    .nav-group-title {
+      font-size: .7rem;
+      font-weight: 700;
+      color: var(--color-muted);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      margin-bottom: .5rem;
+      padding-left: .5rem;
+    }
+    .nav-links {
+      display: flex;
+      flex-direction: column;
+      gap: .25rem;
+      list-style: none;
+    }
+    .nav-link a {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      padding: .45rem .75rem;
+      color: var(--color-secondary);
+      text-decoration: none;
+      font-size: .8rem;
+      border-radius: var(--radius-sm);
+      transition: all var(--transition-fast);
+      font-weight: 500;
+    }
+    .nav-link a:hover {
+      color: var(--color-primary);
+      background: rgba(255, 255, 255, .03);
+    }
+    .nav-link.active a {
+      color: white;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--color-border);
+    }
+    .method-badge {
+      font-size: .55rem;
+      font-weight: 800;
+      padding: 1px 4px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      font-family: var(--font-mono);
+    }
+    .method-badge.get { background: rgba(16, 185, 129, .15); color: var(--color-success); }
+    .method-badge.post { background: rgba(14, 165, 233, .15); color: var(--color-info); }
+
+    /* Main Area */
+    .main-content {
+      padding: 2.5rem;
+      max-width: 1000px;
+      margin: 0 auto;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 2.5rem;
+    }
+    @media(max-width: 900px) {
+      .main-content {
+        padding: 1.5rem;
+      }
+    }
+    .docs-header {
+      border-bottom: 1px solid var(--color-border);
+      padding-bottom: 1.5rem;
+    }
+    .docs-title {
+      font-size: 2rem;
+      font-weight: 800;
+      margin-bottom: .5rem;
+    }
+    .docs-subtitle {
+      color: var(--color-secondary);
+      font-size: .95rem;
+    }
+
+    /* Session selector panel */
+    .session-picker-panel {
+      padding: 1.25rem;
+      background: linear-gradient(135deg, rgba(18, 140, 126, .1), rgba(27, 35, 54, .4));
+      border: 1px solid rgba(18, 140, 126, .3);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-glow);
+    }
+    .picker-title {
+      font-size: .85rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      margin-bottom: .75rem;
+      color: var(--accent-wa-light);
+      display: flex;
+      align-items: center;
+      gap: .4rem;
+    }
+    .picker-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    @media(max-width: 600px) {
+      .picker-row {
+        grid-template-columns: 1fr;
+      }
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: .35rem;
+    }
+    .form-label {
+      font-size: .75rem;
+      font-weight: 600;
+      color: var(--color-secondary);
+      text-transform: uppercase;
+    }
+    .form-select {
+      width: 100%;
+      padding: .5rem .75rem;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      color: var(--color-primary);
+      font-family: var(--font-body);
+      font-size: .85rem;
+      outline: none;
+    }
+    .credentials-display {
+      font-size: .7rem;
+      color: var(--color-secondary);
+      display: flex;
+      flex-direction: column;
+      gap: .3rem;
+      justify-content: center;
+    }
+    .cred-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(11, 15, 25, .6);
+      padding: .35rem .6rem;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--color-border);
+    }
+    .cred-value {
+      font-family: var(--font-mono);
+      color: var(--color-primary);
+      font-weight: 600;
+    }
+    .copy-btn {
+      background: none;
+      border: none;
+      color: var(--accent-wa-light);
+      cursor: pointer;
+      font-size: .6rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: 4px;
+      transition: all var(--transition-fast);
+    }
+    .copy-btn:hover {
+      background: rgba(37, 211, 102, .1);
+    }
+
+    /* Endpoint Sections */
+    .endpoint-card {
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      background: rgba(27, 35, 54, .3);
+      overflow: hidden;
+      scroll-margin-top: 2rem;
+    }
+    .endpoint-header {
+      padding: 1rem 1.5rem;
+      background: rgba(27, 35, 54, .5);
+      border-bottom: 1px solid var(--color-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    .endpoint-path {
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+    }
+    .endpoint-path .method {
+      font-size: .7rem;
+      font-weight: 800;
+      padding: .2rem .6rem;
+      border-radius: 6px;
+      text-transform: uppercase;
+      font-family: var(--font-mono);
+    }
+    .endpoint-path .method.get { background: var(--color-success); color: white; }
+    .endpoint-path .method.post { background: var(--color-info); color: white; }
+    .endpoint-path .path-text {
+      font-family: var(--font-mono);
+      font-size: .95rem;
+      font-weight: 600;
+    }
+    .endpoint-desc {
+      font-size: .85rem;
+      color: var(--color-secondary);
+      font-weight: 500;
+    }
+    .endpoint-body {
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+    
+    .section-title {
+      font-size: .8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--color-secondary);
+      border-bottom: 1px solid var(--color-border);
+      padding-bottom: .25rem;
+      margin-bottom: .75rem;
+    }
+
+    .parameters-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .8rem;
+      margin-top: .5rem;
+    }
+    .parameters-table th, .parameters-table td {
+      padding: .6rem .75rem;
+      text-align: left;
+      border-bottom: 1px solid var(--color-border);
+    }
+    .parameters-table th {
+      color: var(--color-secondary);
+      font-weight: 700;
+      background: rgba(255, 255, 255, .02);
+    }
+    .param-name {
+      font-family: var(--font-mono);
+      font-weight: 600;
+      color: var(--color-primary);
+    }
+    .param-type {
+      font-family: var(--font-mono);
+      font-size: .7rem;
+      color: var(--accent-wa-light);
+      margin-left: .25rem;
+    }
+    .param-req {
+      font-size: .65rem;
+      color: var(--color-error);
+      background: rgba(244, 63, 94, .1);
+      padding: 1px 4px;
+      border-radius: 4px;
+      font-weight: 700;
+      margin-left: .25rem;
+    }
+    .param-desc {
+      color: var(--color-secondary);
+    }
+
+    /* Code block container */
+    .code-container {
+      position: relative;
+      background: #060911;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+    }
+    .code-header {
+      background: rgba(255,255,255,.02);
+      border-bottom: 1px solid var(--color-border);
+      padding: .4rem .75rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: .65rem;
+      color: var(--color-muted);
+    }
+    .code-body {
+      padding: 1rem;
+      font-family: var(--font-mono);
+      font-size: .78rem;
+      overflow-x: auto;
+      white-space: pre;
+      color: #38bdf8; /* Nice neon blue code */
+    }
+    .code-body.response {
+      color: #34d399; /* Green response code */
+    }
+    .code-body.curl-code {
+      color: #f472b6; /* Pink cURL code */
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: var(--accent-wa);
+      color: white;
+      padding: .75rem 1.25rem;
+      border-radius: var(--radius-md);
+      font-size: .85rem;
+      font-weight: 600;
+      box-shadow: var(--shadow-md);
+      z-index: 9999;
+      transition: opacity .3s ease;
+      opacity: 1;
+    }
+    .toast.hidden {
+      display: none;
+      opacity: 0;
+    }
+  </style>
+</head>
+<body>
+  <!-- MOBILE HEADER BAR -->
+  <div class="mobile-docs-header">
+    <a href="/" class="brand-section" style="text-decoration:none">
+      <div class="brand-logo" style="width:30px;height:30px;font-size:0.9rem">&#128241;</div>
+      <div class="brand-title">
+        <h1 style="font-size:1rem">WazoneIndia Docs</h1>
+      </div>
+    </a>
+    <button class="mobile-menu-toggle-btn" onclick="toggleMobileNav()">
+      <span>&#9776;</span> Navigation
+    </button>
+  </div>
+
+  <div class="layout-container">
+    
+    <!-- SIDEBAR NAVIGATION -->
+    <nav class="sidebar-nav" id="sidebarNav">
+      <a href="/" class="brand-section">
+        <div class="brand-logo">&#128241;</div>
+        <div class="brand-title">
+          <h1>WazoneIndia</h1>
+          <span>API Documentation</span>
+        </div>
+      </a>
+
+      <div>
+        <div class="nav-group-title">Getting Started</div>
+        <ul class="nav-links">
+          <li class="nav-link active" id="link-introduction"><a href="#introduction">&#128091; Introduction</a></li>
+          <li class="nav-link" id="link-auth"><a href="#authentication">&#128274; Authentication</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <div class="nav-group-title">Device & Auth</div>
+        <ul class="nav-links">
+          <li class="nav-link" id="link-sessions"><a href="#endpoint-sessions"><span class="method-badge get">get</span> /api/sessions</a></li>
+          <li class="nav-link" id="link-connect-qr"><a href="#endpoint-connect-qr"><span class="method-badge post">post</span> /connect-qr</a></li>
+          <li class="nav-link" id="link-qr"><a href="#endpoint-qr"><span class="method-badge get">get</span> /api/qr/:id</a></li>
+          <li class="nav-link" id="link-connect"><a href="#endpoint-connect"><span class="method-badge post">post</span> /api/connect</a></li>
+          <li class="nav-link" id="link-status"><a href="#endpoint-status"><span class="method-badge get">get</span> /check-status</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <div class="nav-group-title">Messaging</div>
+        <ul class="nav-links">
+          <li class="nav-link" id="link-send-text"><a href="#endpoint-send-text"><span class="method-badge post">post</span> /send (Text)</a></li>
+          <li class="nav-link" id="link-send-media"><a href="#endpoint-send-media"><span class="method-badge post">post</span> /send (Media)</a></li>
+          <li class="nav-link" id="link-send-doc"><a href="#endpoint-send-doc"><span class="method-badge post">post</span> /send (Doc)</a></li>
+          <li class="nav-link" id="link-send-buttons"><a href="#endpoint-send-buttons"><span class="method-badge post">post</span> /send (Buttons)</a></li>
+          <li class="nav-link" id="link-send-list"><a href="#endpoint-send-list"><span class="method-badge post">post</span> /send (List)</a></li>
+          <li class="nav-link" id="link-send-poll"><a href="#endpoint-send-poll"><span class="method-badge post">post</span> /send (Poll)</a></li>
+          <li class="nav-link" id="link-send-carousel"><a href="#endpoint-send-carousel"><span class="method-badge post">post</span> /send (Carousel)</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <div class="nav-group-title">Queries & Admin</div>
+        <ul class="nav-links">
+          <li class="nav-link" id="link-devices"><a href="#endpoint-devices"><span class="method-badge get">get</span> /api/devices</a></li>
+          <li class="nav-link" id="link-groups"><a href="#endpoint-groups"><span class="method-badge get">get</span> /api/groups</a></li>
+          <li class="nav-link" id="link-disconnect"><a href="#endpoint-disconnect"><span class="method-badge post">post</span> /disconnect</a></li>
+          <li class="nav-link" id="link-reconnect"><a href="#endpoint-reconnect"><span class="method-badge post">post</span> /reconnect</a></li>
+          <li class="nav-link" id="link-remove"><a href="#endpoint-remove"><span class="method-badge post">post</span> /remove-session</a></li>
+          <li class="nav-link" id="link-logout"><a href="#endpoint-logout"><span class="method-badge post">post</span> /logout</a></li>
+        </ul>
+      </div>
+    </nav>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
+      
+      <!-- Introduction Header -->
+      <section class="docs-header" id="introduction">
+        <h2 class="docs-title">WazoneIndia REST API</h2>
+        <p class="docs-subtitle">Manage multiple WhatsApp client sessions and dispatch rich interactive messaging types including lists, reply buttons, carousels, and polls.</p>
+      </section>
+
+      <!-- Active Session Selector Picker -->
+      <section class="session-picker-panel">
+        <div class="picker-title">
+          <span>&#9889; Dynamic Playground Helper</span>
+        </div>
+        <div class="picker-row">
+          <div class="form-group">
+            <label class="form-label" for="sessionSelector">Select Target Device Session</label>
+            <select class="form-select" id="sessionSelector" onchange="onSessionChange()">
+              <option value="">-- No Active Sessions Found --</option>
+            </select>
+          </div>
+          <div class="credentials-display">
+            <div class="cred-item">
+              <span>API Key:</span>
+              <span class="cred-value" id="disp-api-key">-</span>
+              <button class="copy-btn" onclick="copyValue('disp-api-key', 'API Key')">Copy</button>
+            </div>
+            <div class="cred-item">
+              <span>API Token:</span>
+              <span class="cred-value" id="disp-api-token">-</span>
+              <button class="copy-btn" onclick="copyValue('disp-api-token', 'API Token')">Copy</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Authentication Details -->
+      <section class="endpoint-card" id="authentication" style="scroll-margin-top:2rem">
+        <div class="endpoint-header">
+          <h3 style="font-size:1.05rem">&#128274; Authentication & API Credentials</h3>
+        </div>
+        <div class="endpoint-body" style="gap:1rem;font-size:.85rem;color:var(--color-secondary)">
+          <p>Each WhatsApp session has its own unique, deterministic credentials that are displayed in the Device Manager dashboard card.</p>
+          <p>Pass your credentials via one of the following methods:</p>
+          <ul style="margin-left:1.5rem;display:flex;flex-direction:column;gap:.35rem">
+            <li><strong>Header:</strong> <code>x-api-key: wz_key_xxxx</code> or <code>Authorization: Bearer wz_key_xxxx</code></li>
+            <li><strong>Query parameter:</strong> <code>?apiKey=wz_key_xxxx</code> or <code>?token=wz_tok_xxxx</code></li>
+          </ul>
+          <p style="margin-top:.5rem"><strong>Backward Compatibility Note:</strong> Authorization checks are graceful; if credentials are not supplied, the request is allowed (with a console warning) to avoid breaking local service scripts.</p>
+        </div>
+      </section>
+
+      <!-- ================= SESSIONS LIST ================= -->
+      <section class="endpoint-card" id="endpoint-sessions">
+        <div class="endpoint-header">
+          <div class="endpoint-path">
+            <span class="method get">GET</span>
+            <span class="path-text">/api/sessions</span>
+          </div>
+          <span class="endpoint-desc">List all configured WhatsApp sessions</span>
+        </div>
+        <div class="endpoint-body">
+          <div>
+            <div class="section-title">Request Headers</div>
+            <table class="parameters-table">
+              <thead><tr><th>Header</th><th>Required</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td class="param-name">x-api-key</td><td>No</td><td>Your API Key or Token (graceful bypass if missing)</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div>
+            <div class="section-title">Copy cURL Command</div>
+            <div class="code-container">
+              <div class="code-header"><span>cURL</span><button class="copy-btn" onclick="copyCodeText('curl-sessions')">Copy</button></div>
+              <div class="code-body curl-code" id="curl-sessions"></div>
+            </div>
+          </div>
+          <div>
+            <div class="section-title">Response (200 Success)</div>
+            <div class="code-container">
+              <div class="code-header"><span>JSON</span></div>
+              <div class="code-body response">{
+  "success": true,
+  "sessions": [
+    {
+      "sessionId": "default",
+      "connected": true,
+      "status": "connected",
+      "qrAvailable": false,
+      "pairingCode": null,
+      "apiKey": "wz_key_9a8b...",
+      "apiToken": "wz_tok_f8d7...",
+      "phoneNumber": "919843350000",
+      "jid": "919843350000@s.whatsapp.net",
+      "pushName": "Admin Panel",
+      "platform": "smba"
+    }
+  ],
+  "total": 1
+}</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= CONNECT QR ================= -->
+      <section class="endpoint-card" id="endpoint-connect-qr">
+        <div class="endpoint-header">
+          <div class="endpoint-path">
+            <span class="method post">POST</span>
+            <span class="path-text">/api/connect-qr</span>
+          </div>
+          <span class="endpoint-desc">Initialize a session and generate a QR code</span>
+        </div>
+        <div class="endpoint-body">
+          <div>
+            <div class="section-title">JSON Body Parameters</div>
+            <table class="parameters-table">
+              <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td class="param-name">sessionId<span class="param-req">Required</span></td><td class="param-type">string</td><td>Unique identifier for the WhatsApp session to create/start</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div>
+            <div class="section-title">Copy cURL Command</div>
+            <div class="code-container">
+              <div class="code-header"><span>cURL</span><button class="copy-btn" onclick="copyCodeText('curl-connect-qr')">Copy</button></div>
+              <div class="code-body curl-code" id="curl-connect-qr"></div>
+            </div>
+          </div>
+          <div>
+            <div class="section-title">Response (200 Success)</div>
+            <div class="code-container">
+              <div class="code-header"><span>JSON</span></div>
+              <div class="code-body response">{
+  "success": true,
+  "connected": false,
+  "qr": "2@...",
+  "qrDataUrl": "data:image/png;base64,...",
+  "message": "QR code ready"
+}</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= QR CODE STATE ================= -->
+      <section class="endpoint-card" id="endpoint-qr">
+        <div class="endpoint-header">
+          <div class="endpoint-path">
+            <span class="method get">GET</span>
+            <span class="path-text">/api/qr/:sessionId</span>
+          </div>
+          <span class="endpoint-desc">Retrieve the current QR authentication state</span>
+        </div>
+        <div class="endpoint-body">
+          <div>
+            <div class="section-title">Copy cURL Command</div>
+            <div class="code-container">
+              <div class="code-header"><span>cURL</span><button class="copy-btn" onclick="copyCodeText('curl-qr')">Copy</button></div>
+              <div class="code-body curl-code" id="curl-qr"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= PAIRING CODE ================= -->
+      <section class="endpoint-card" id="endpoint-connect">
+        <div class="endpoint-header">
+          <div class="endpoint-path">
+            <span class="method post">POST</span>
+            <span class="path-text">/api/connect</span>
+          </div>
+          <span class="endpoint-desc">Link WhatsApp via an 8-character pairing code</span>
+        </div>
+        <div class="endpoint-body">
+          <div>
+            <div class="section-title">JSON Body Parameters</div>
+            <table class="parameters-table">
+              <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td class="param-name">sessionId<span class="param-req">Required</span></td><td class="param-type">string</td><td>Unique identifier for the session</td></tr>
+                <tr><td class="param-name">phoneNumber<span class="param-req">Required</span></td><td class="param-type">string</td><td>Mobile number including country code (e.g. "919843350000")</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div>
+            <div class="section-title">Copy cURL Command</div>
+            <div class="code-container">
+              <div class="code-header"><span>cURL</span><button class="copy-btn" onclick="copyCodeText('curl-connect')">Copy</button></div>
+              <div class="code-body curl-code" id="curl-connect"></div>
+            </div>
+          </div>
+          <div>
+            <div class="section-title">Response (200 Success)</div>
+            <div class="code-container">
+              <div class="code-header"><span>JSON</span></div>
+              <div class="code-body response">{
+  "success": true,
+  "message": "Open WhatsApp -> Linked Devices -> Link with phone number and enter pairing code",
+  "pairingCode": "ABC123XY",
+  "phoneNumber": "919843350000"
+}</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= CHECK STATUS ================= -->
+      <section class="endpoint-card" id="endpoint-status">
+        <div class="endpoint-header">
+          <div class="endpoint-path">
+            <span class="method get">GET</span>
+            <span class="path-text">/api/check-status/:sessionId</span>
+          </div>
+          <span class="endpoint-desc">Fetch connection details and status</span>
+        </div>
+        <div class="endpoint-body">
+          <div>
+            <div class="section-title">Copy cURL Command</div>
+            <div class="code-container">
+              <div class="code-header"><span>cURL</span><button class="copy-btn" onclick="copyCodeText('curl-status')">Copy</button></div>
+              <div class="code-body curl-code" id="curl-status"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= SEND TEXT ================= -->
+      <section class="endpoint-card" id="endpoint-send-text">
+        <div class="endpoint-header">
+          <div class="endpoint-path">
+            <span class="method post">POST</span>
+            <span class="path-text">/api/send (Text)</span>
+          </div>
+          <span class="endpoint-desc">Send a plain text message</span>
+        </div>
+        <div class="endpoint-body">
+          <div>
+            <div class="section-title">JSON Body Parameters</div>
+            <table class="parameters-table">
+              <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td class="param-name">sessionId<span class="param-req">Required</span></td><td class="param-type">string</td><td>ID of the sending device session</td></tr>
+                <tr><td class="param-name">number<span class="param-req">Required</span></td><td class="param-type">string</td><td>Recipient phone number (e.g. "919843350000" or group JID)</td></tr>
+                <tr><td class="param-name">type<span class="param-req">Required</span></td><td class="param-type">string</td><td>Set this to <code>"text"</code></td></tr>
+                <tr><td class="param-name">message<span class="param-req">Required</span></td><td class="param-type">string</td><td>Text content of the message</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div>
+            <div class="section-title">Copy cURL Command</div>
+            <div class="code-container">
+              <div class="code-header"><span>cURL</span><button class="copy-btn" onclick="copyCodeText('curl-send-text')">Copy</button></div>
+              <div class="code-body curl-code" id="curl-send-text"></div>
+            </div>
+          </div>
+          <div>
+            <div class="section-title">Response (200 Success)</div>
+            <div class="code-container">
+              <div class="code-header"><span>JSON</span></div>
+              <div class="code-body response">{
+  "success": true,
+  "message": "Message sent successfully",
+  "messageId": "3EB04D368C1C"
+}</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= SEND MEDIA ================= -->
+      <section class="endpoint-card" id="endpoint-send-media">
+        <div class="endpoint-header">
+          <div class="endpoint-path">
+            <span class="method post">POST</span>
+            <span class="path-text">/api/send (Media)</span>
+          </div>
+          <span class="endpoint-desc">Send image messages with captions</span>
+        </div>
+        <div class="endpoint-body">
+          <div>
+            <div class="section-title">JSON Body Parameters</div>
+            <table class="parameters-table">
+              <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td class="param-name">sessionId<span class="param-req">Required</span></td><td class="param-type">string</td><td>Sending session ID</td></tr>
+                <tr><td class="param-name">number<span class="param-req">Required</span></td><td class="param-type">string</td><td>Recipient phone number</td></tr>
+                <tr><td class="param-name">type<span class="param-req">Required</span></td><td class="param-type">string</td><td>Set this to <code>"image"</code></td></tr>
+                <tr><td class="param-name">mediaUrl<span class="param-req">Required</span></td><td class="param-type">string</td><td>Public direct link to image asset</td></tr>
+                <tr><td class="param-name">message</td><td class="param-type">string</td><td>Caption text below the media</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div>
+            <div class="section-title">Copy cURL Command</div>
+            <div class="code-container">
+              <div class="code-header"><span>cURL</span><button class="copy-btn" onclick="copyCodeText('curl-send-media')">Copy</button></div>
+              <div class="code-body curl-code" id="curl-send-media"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= SEND DOCUMENT ================= -->
+      <section class="endpoint-card" id="endpoint-send-doc">
+        <div class="endpoint-header">
+          <div class="endpoint-path">
+            <span class="method post">POST</span>
+            <span class="path-text">/api/send (Document)</span>
+          </div>
+          <span class="endpoint-desc">Send document files (PDF, DOCX, ZIP, etc.)</span>
+        </div>
+        <div class="endpoint-body">
+          <div>
+            <div class="section-title">JSON Body Parameters</div>
+            <table class="parameters-table">
+              <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td class="param-name">sessionId<span class="param-req">Required</span></td><td class="param-type">string</td><td>Sending session ID</td></tr>
+                <tr><td class="param-name">number<span class="param-req">Required</span></td><td class="param-type">string</td><td>Recipient phone number</td></tr>
+                <tr><td class="param-name">type<span class="param-req">Required</span></td><td class="param-type">string</td><td>Set this to <code>"document"</code></td></tr>
+                <tr><td class="param-name">mediaUrl<span class="param-req">Required</span></td><td class="param-type">string</td><td>Public direct link to the document</td></tr>
+                <tr><td class="param-name">message</td><td class="param-type">string</td><td>Optional caption text</td></tr>
+                <tr><td class="param-name">fileName</td><td class="param-type">string</td><td>The name displayed for the file (e.g. "Invoice.pdf")</td></tr>
+                <tr><td class="param-name">mimetype</td><td class="param-type">string</td><td>Mime type of document (defaults to "application/octet-stream")</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div>
+            <div class="section-title">Copy cURL Command</div>
+            <div class="code-container">
+              <div class="code-header"><span>cURL</span><button class="copy-btn" onclick="copyCodeText('curl-send-doc')">Copy</button></div>
+              <div class="code-body curl-code" id="curl-send-doc"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= SEND BUTTONS ================= -->
+      <section class="endpoint-card" id="endpoint-send-buttons">
+        <div class="endpoint-header">
+          <div class="endpoint-path">
+            <span class="method post">POST</span>
+            <span class="path-text">/api/send (Buttons)</span>
+          </div>
+          <span class="endpoint-desc">Send quick reply or call-to-action buttons</span>
+        </div>
+        <div class="endpoint-body">
+          <div>
+            <div class="section-title">JSON Body Parameters</div>
+            <table class="parameters-table">
+              <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td class="param-name">sessionId<span class="param-req">Required</span></td><td class="param-type">string</td><td>Sending session ID</td></tr>
+                <tr><td class="param-name">number<span class="param-req">Required</span></td><td class="param-type">string</td><td>Recipient phone number</td></tr>
+                <tr><td class="param-name">type<span class="param-req">Required</span></td><td class="param-type">string</td><td>Set this to <code>"button"</code></td></tr>
+                <tr><td class="param-name">options<span class="param-req">Required</span></td><td class="param-type">object</td><td>Button settings containing <code>text</code>, <code>footer</code>, and <code>buttons</code> array</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div>
+            <div class="section-title">Copy cURL Command</div>
+            <div class="code-container">
+              <div class="code-header"><span>cURL</span><button class="copy-btn" onclick="copyCodeText('curl-send-buttons')">Copy</button></div>
+              <div class="code-body curl-code" id="curl-send-buttons"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= SEND LIST ================= -->
+      <section class="endpoint-card" id="endpoint-send-list">
+        <div class="endpoint-header">
+          <div class="endpoint-path">
+            <span class="method post">POST</span>
+            <span class="path-text">/api/send (List)</span>
+          </div>
+          <span class="endpoint-desc">Send interactive select menus (List Messages)</span>
+        </div>
+        <div class="endpoint-body">
+          <div>
+            <div class="section-title">JSON Body Parameters</div>
+            <table class="parameters-table">
+              <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td class="param-name">sessionId<span class="param-req">Required</span></td><td class="param-type">string</td><td>Sending session ID</td></tr>
+                <tr><td class="param-name">number<span class="param-req">Required</span></td><td class="param-type">string</td><td>Recipient phone</td></tr>
+                <tr><td class="param-name">type<span class="param-req">Required</span></td><td class="param-type">string</td><td>Set to <code>"list"</code></td></tr>
+                <tr><td class="param-name">options<span class="param-req">Required</span></td><td class="param-type">object</td><td>List data: <code>title</code>, <code>text</code>, <code>footer</code>, <code>buttonText</code>, and <code>sections</code></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div>
+            <div class="section-title">Copy cURL Command</div>
+            <div class="code-container">
+              <div class="code-header"><span>cURL</span><button class="copy-btn" onclick="copyCodeText('curl-send-list')">Copy</button></div>
+              <div class="code-body curl-code" id="curl-send-list"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= SEND POLL ================= -->
+      <section class="endpoint-card" id="endpoint-send-poll">
+        <div class="endpoint-header">
+          <div class="endpoint-path">
+            <span class="method post">POST</span>
+            <span class="path-text">/api/send (Poll)</span>
+          </div>
+          <span class="endpoint-desc">Send WhatsApp interactive polls</span>
+        </div>
+        <div class="endpoint-body">
+          <div>
+            <div class="section-title">JSON Body Parameters</div>
+            <table class="parameters-table">
+              <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td class="param-name">sessionId<span class="param-req">Required</span></td><td class="param-type">string</td><td>Sending session ID</td></tr>
+                <tr><td class="param-name">number<span class="param-req">Required</span></td><td class="param-type">string</td><td>Recipient JID / number</td></tr>
+                <tr><td class="param-name">type<span class="param-req">Required</span></td><td class="param-type">string</td><td>Set to <code>"poll"</code></td></tr>
+                <tr><td class="param-name">options<span class="param-req">Required</span></td><td class="param-type">object</td><td>Poll options: <code>name</code> (question) and <code>values</code> (options array)</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div>
+            <div class="section-title">Copy cURL Command</div>
+            <div class="code-container">
+              <div class="code-header"><span>cURL</span><button class="copy-btn" onclick="copyCodeText('curl-send-poll')">Copy</button></div>
+              <div class="code-body curl-code" id="curl-send-poll"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= SEND CAROUSEL ================= -->
+      <section class="endpoint-card" id="endpoint-send-carousel">
+        <div class="endpoint-header">
+          <div class="endpoint-path">
+            <span class="method post">POST</span>
+            <span class="path-text">/api/send (Carousel)</span>
+          </div>
+          <span class="endpoint-desc">Send interactive card decks (Carousel Messages)</span>
+        </div>
+        <div class="endpoint-body">
+          <div>
+            <div class="section-title">JSON Body Parameters</div>
+            <table class="parameters-table">
+              <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td class="param-name">sessionId<span class="param-req">Required</span></td><td class="param-type">string</td><td>Sending session ID</td></tr>
+                <tr><td class="param-name">number<span class="param-req">Required</span></td><td class="param-type">string</td><td>Recipient phone</td></tr>
+                <tr><td class="param-name">type<span class="param-req">Required</span></td><td class="param-type">string</td><td>Set to <code>"carousel"</code></td></tr>
+                <tr><td class="param-name">options<span class="param-req">Required</span></td><td class="param-type">object</td><td>Carousel settings containing <code>cards</code> array (with images, text, buttons)</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div>
+            <div class="section-title">Copy cURL Command</div>
+            <div class="code-container">
+              <div class="code-header"><span>cURL</span><button class="copy-btn" onclick="copyCodeText('curl-send-carousel')">Copy</button></div>
+              <div class="code-body curl-code" id="curl-send-carousel"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= QUERY DEVICES ================= -->
+      <section class="endpoint-card" id="endpoint-devices">
+        <div class="endpoint-header">
+          <div class="endpoint-path">
+            <span class="method get">GET</span>
+            <span class="path-text">/api/devices/:sessionId</span>
+          </div>
+          <span class="endpoint-desc">Query active linked client devices from WhatsApp servers</span>
+        </div>
+        <div class="endpoint-body">
+          <div>
+            <div class="section-title">Copy cURL Command</div>
+            <div class="code-container">
+              <div class="code-header"><span>cURL</span><button class="copy-btn" onclick="copyCodeText('curl-devices')">Copy</button></div>
+              <div class="code-body curl-code" id="curl-devices"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= FETCH GROUPS ================= -->
+      <section class="endpoint-card" id="endpoint-groups">
+        <div class="endpoint-header">
+          <div class="endpoint-path">
+            <span class="method get">GET</span>
+            <span class="path-text">/api/groups/:sessionId</span>
+          </div>
+          <span class="endpoint-desc">Fetch JIDs and metadata for joined groups</span>
+        </div>
+        <div class="endpoint-body">
+          <div>
+            <div class="section-title">Copy cURL Command</div>
+            <div class="code-container">
+              <div class="code-header"><span>cURL</span><button class="copy-btn" onclick="copyCodeText('curl-groups')">Copy</button></div>
+              <div class="code-body curl-code" id="curl-groups"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= DISCONNECT ================= -->
+      <section class="endpoint-card" id="endpoint-disconnect">
+        <div class="endpoint-header">
+          <div class="endpoint-path">
+            <span class="method post">POST</span>
+            <span class="path-text">/api/disconnect</span>
+          </div>
+          <span class="endpoint-desc">Disconnect socket link without logging out</span>
+        </div>
+        <div class="endpoint-body">
+          <div>
+            <div class="section-title">Copy cURL Command</div>
+            <div class="code-container">
+              <div class="code-header"><span>cURL</span><button class="copy-btn" onclick="copyCodeText('curl-disconnect')">Copy</button></div>
+              <div class="code-body curl-code" id="curl-disconnect"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= RECONNECT ================= -->
+      <section class="endpoint-card" id="endpoint-reconnect">
+        <div class="endpoint-header">
+          <div class="endpoint-path">
+            <span class="method post">POST</span>
+            <span class="path-text">/api/reconnect</span>
+          </div>
+          <span class="endpoint-desc">Trigger socket reconnection</span>
+        </div>
+        <div class="endpoint-body">
+          <div>
+            <div class="section-title">Copy cURL Command</div>
+            <div class="code-container">
+              <div class="code-header"><span>cURL</span><button class="copy-btn" onclick="copyCodeText('curl-reconnect')">Copy</button></div>
+              <div class="code-body curl-code" id="curl-reconnect"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= REMOVE SESSION ================= -->
+      <section class="endpoint-card" id="endpoint-remove">
+        <div class="endpoint-header">
+          <div class="endpoint-path">
+            <span class="method post">POST</span>
+            <span class="path-text">/api/remove-session</span>
+          </div>
+          <span class="endpoint-desc">Disconnect session and delete credential files</span>
+        </div>
+        <div class="endpoint-body">
+          <div>
+            <div class="section-title">Copy cURL Command</div>
+            <div class="code-container">
+              <div class="code-header"><span>cURL</span><button class="copy-btn" onclick="copyCodeText('curl-remove')">Copy</button></div>
+              <div class="code-body curl-code" id="curl-remove"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= LOGOUT ================= -->
+      <section class="endpoint-card" id="endpoint-logout">
+        <div class="endpoint-header">
+          <div class="endpoint-path">
+            <span class="method post">POST</span>
+            <span class="path-text">/api/logout</span>
+          </div>
+          <span class="endpoint-desc">Perform full logout (de-authorizes instance on WhatsApp)</span>
+        </div>
+        <div class="endpoint-body">
+          <div>
+            <div class="section-title">Copy cURL Command</div>
+            <div class="code-container">
+              <div class="code-header"><span>cURL</span><button class="copy-btn" onclick="copyCodeText('curl-logout')">Copy</button></div>
+              <div class="code-body curl-code" id="curl-logout"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script>
+    const BASE = window.location.origin;
+    let sessions = [];
+    let activeSession = null;
+    let toastTimer = null;
+
+    // Fetch sessions on load
+    async function init() {
+      try {
+        const res = await fetch(BASE + '/api/sessions');
+        const data = await res.json();
+        if (data.success && data.sessions) {
+          sessions = data.sessions;
+          populateSelector();
+        }
+      } catch (err) {
+        console.error('Failed to load sessions in playground:', err);
+      }
+      updateCurls();
+      setupScrollSpy();
+    }
+
+    function populateSelector() {
+      const select = document.getElementById('sessionSelector');
+      if (sessions.length === 0) {
+        select.innerHTML = '<option value="">-- No Active Sessions Found --</option>';
+        return;
+      }
+      select.innerHTML = sessions.map(s => {
+        const label = s.phoneNumber ? `${s.sessionId} (+${s.phoneNumber})` : s.sessionId;
+        const state = s.connected ? '🟢' : '🔴';
+        return `<option value="${s.sessionId}">${state} ${label}</option>`;
+      }).join('');
+      
+      // Set first active
+      select.value = sessions[0].sessionId;
+      onSessionChange();
+    }
+
+    function onSessionChange() {
+      const select = document.getElementById('sessionSelector');
+      const sId = select.value;
+      activeSession = sessions.find(s => s.sessionId === sId) || null;
+
+      const keyEl = document.getElementById('disp-api-key');
+      const tokenEl = document.getElementById('disp-api-token');
+
+      if (activeSession) {
+        keyEl.textContent = activeSession.apiKey || '-';
+        tokenEl.textContent = activeSession.apiToken || '-';
+      } else {
+        keyEl.textContent = '-';
+        tokenEl.textContent = '-';
+      }
+      updateCurls();
+    }
+
+    function getAuthHeader() {
+      if (activeSession && activeSession.apiKey) {
+        return `  -H "x-api-key: ${activeSession.apiKey}" \\\n`;
+      }
+      return '';
+    }
+
+    function getSessionId() {
+      return activeSession ? activeSession.sessionId : 'YOUR_SESSION_ID';
+    }
+
+    function updateCurls() {
+      const sId = getSessionId();
+      const auth = getAuthHeader();
+
+      // Sessions
+      document.getElementById('curl-sessions').textContent = 
+        `curl -X GET "${BASE}/api/sessions"\n` +
+        (activeSession && activeSession.apiKey ? `  -H "x-api-key: ${activeSession.apiKey}"` : '');
+
+      // Connect QR
+      document.getElementById('curl-connect-qr').textContent = 
+        `curl -X POST "${BASE}/api/connect-qr" \\\n` +
+        auth +
+        `  -H "Content-Type: application/json" \\\n` +
+        `  -d '{\n    "sessionId": "${sId}"\n  }'`;
+
+      // QR status
+      document.getElementById('curl-qr').textContent = 
+        `curl -X GET "${BASE}/api/qr/${sId}"` +
+        (activeSession && activeSession.apiKey ? ` \\\n  -H "x-api-key: ${activeSession.apiKey}"` : '');
+
+      // Pairing Code
+      document.getElementById('curl-connect').textContent = 
+        `curl -X POST "${BASE}/api/connect" \\\n` +
+        auth +
+        `  -H "Content-Type: application/json" \\\n` +
+        `  -d '{\n    "sessionId": "${sId}",\n    "phoneNumber": "91XXXXXXXXXX"\n  }'`;
+
+      // Check Status
+      document.getElementById('curl-status').textContent = 
+        `curl -X GET "${BASE}/api/check-status/${sId}"` +
+        (activeSession && activeSession.apiKey ? ` \\\n  -H "x-api-key: ${activeSession.apiKey}"` : '');
+
+      // Send Text
+      document.getElementById('curl-send-text').textContent = 
+        `curl -X POST "${BASE}/api/send" \\\n` +
+        auth +
+        `  -H "Content-Type: application/json" \\\n` +
+        `  -d '{\n    "sessionId": "${sId}",\n    "number": "91XXXXXXXXXX",\n    "type": "text",\n    "message": "Hello from WazoneIndia!"\n  }'`;
+
+      // Send Media
+      document.getElementById('curl-send-media').textContent = 
+        `curl -X POST "${BASE}/api/send" \\\n` +
+        auth +
+        `  -H "Content-Type: application/json" \\\n` +
+        `  -d '{\n    "sessionId": "${sId}",\n    "number": "91XXXXXXXXXX",\n    "type": "image",\n    "mediaUrl": "https://example.com/image.jpg",\n    "message": "Caption text"\n  }'`;
+
+      // Send Doc
+      document.getElementById('curl-send-doc').textContent = 
+        `curl -X POST "${BASE}/api/send" \\\n` +
+        auth +
+        `  -H "Content-Type: application/json" \\\n` +
+        `  -d '{\n    "sessionId": "${sId}",\n    "number": "91XXXXXXXXXX",\n    "type": "document",\n    "mediaUrl": "https://example.com/invoice.pdf",\n    "message": "Document caption",\n    "fileName": "invoice.pdf",\n    "mimetype": "application/pdf"\n  }'`;
+
+      // Send Buttons
+      const btnPayload = {
+        sessionId: sId,
+        number: "91XXXXXXXXXX",
+        type: "button",
+        options: {
+          text: "Would you like a quote?",
+          footer: "Choose option below",
+          buttons: [
+            { id: "quote_yes", text: "Yes, please", type: "quick_reply" },
+            { id: "visit_url", text: "Visit Site", type: "cta_url", url: "https://example.com" }
+          ]
+        }
+      };
+      document.getElementById('curl-send-buttons').textContent = 
+        `curl -X POST "${BASE}/api/send" \\\n` +
+        auth +
+        `  -H "Content-Type: application/json" \\\n` +
+        `  -d '${JSON.stringify(btnPayload, null, 2)}'`;
+
+      // Send List
+      const listPayload = {
+        sessionId: sId,
+        number: "91XXXXXXXXXX",
+        type: "list",
+        options: {
+          title: "Main Catalog",
+          text: "Browse our standard plans",
+          footer: "Select a package",
+          buttonText: "View Packages",
+          sections: [
+            {
+              title: "Standard Options",
+              rows: [
+                { id: "pkg_basic", title: "Basic Tier", description: "Standard messaging package" },
+                { id: "pkg_developer", title: "Developer Pro", description: "Advanced automation capability" }
+              ]
+            }
+          ]
+        }
+      };
+      document.getElementById('curl-send-list').textContent = 
+        `curl -X POST "${BASE}/api/send" \\\n` +
+        auth +
+        `  -H "Content-Type: application/json" \\\n` +
+        `  -d '${JSON.stringify(listPayload, null, 2)}'`;
+
+      // Send Poll
+      const pollPayload = {
+        sessionId: sId,
+        number: "91XXXXXXXXXX",
+        type: "poll",
+        options: {
+          name: "Rate our WhatsApp Suite solution",
+          values: ["Excellent", "Good", "Needs Improvement"]
+        }
+      };
+      document.getElementById('curl-send-poll').textContent = 
+        `curl -X POST "${BASE}/api/send" \\\n` +
+        auth +
+        `  -H "Content-Type: application/json" \\\n` +
+        `  -d '${JSON.stringify(pollPayload, null, 2)}'`;
+
+      // Send Carousel
+      const carouselPayload = {
+        sessionId: sId,
+        number: "91XXXXXXXXXX",
+        type: "carousel",
+        options: {
+          cards: [
+            {
+              imageUrl: "https://example.com/productA.jpg",
+              title: "Product Option A",
+              body: "Sleek compact choice",
+              buttons: [{ id: "buy_a", text: "Buy Option A" }]
+            },
+            {
+              imageUrl: "https://example.com/productB.jpg",
+              title: "Product Option B",
+              body: "Heavy-duty enterprise package",
+              buttons: [{ id: "buy_b", text: "Buy Option B" }]
+            }
+          ]
+        }
+      };
+      document.getElementById('curl-send-carousel').textContent = 
+        `curl -X POST "${BASE}/api/send" \\\n` +
+        auth +
+        `  -H "Content-Type: application/json" \\\n` +
+        `  -d '${JSON.stringify(carouselPayload, null, 2)}'`;
+
+      // Devices
+      document.getElementById('curl-devices').textContent = 
+        `curl -X GET "${BASE}/api/devices/${sId}"` +
+        (activeSession && activeSession.apiKey ? ` \\\n  -H "x-api-key: ${activeSession.apiKey}"` : '');
+
+      // Groups
+      document.getElementById('curl-groups').textContent = 
+        `curl -X GET "${BASE}/api/groups/${sId}"` +
+        (activeSession && activeSession.apiKey ? ` \\\n  -H "x-api-key: ${activeSession.apiKey}"` : '');
+
+      // Disconnect
+      document.getElementById('curl-disconnect').textContent = 
+        `curl -X POST "${BASE}/api/disconnect" \\\n` +
+        auth +
+        `  -H "Content-Type: application/json" \\\n` +
+        `  -d '{\n    "sessionId": "${sId}"\n  }'`;
+
+      // Reconnect
+      document.getElementById('curl-reconnect').textContent = 
+        `curl -X POST "${BASE}/api/reconnect" \\\n` +
+        auth +
+        `  -H "Content-Type: application/json" \\\n` +
+        `  -d '{\n    "sessionId": "${sId}"\n  }'`;
+
+      // Remove Session
+      document.getElementById('curl-remove').textContent = 
+        `curl -X POST "${BASE}/api/remove-session" \\\n` +
+        auth +
+        `  -H "Content-Type: application/json" \\\n` +
+        `  -d '{\n    "sessionId": "${sId}"\n  }'`;
+
+      // Logout
+      document.getElementById('curl-logout').textContent = 
+        `curl -X POST "${BASE}/api/logout" \\\n` +
+        auth +
+        `  -H "Content-Type: application/json" \\\n` +
+        `  -d '{\n    "sessionId": "${sId}"\n  }'`;
+    }
+
+    function showToast(msg) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.classList.remove('hidden');
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.classList.add('hidden'), 2500);
+    }
+
+    function copyValue(elementId, label) {
+      const txt = document.getElementById(elementId).textContent;
+      if (txt === '-') { showToast('No value available to copy'); return; }
+      navigator.clipboard.writeText(txt).then(() => {
+        showToast(label + ' copied to clipboard!');
+      });
+    }
+
+    function copyCodeText(elementId) {
+      const txt = document.getElementById(elementId).textContent;
+      navigator.clipboard.writeText(txt).then(() => {
+        showToast('cURL command copied to clipboard!');
+      });
+    }
+
+    function toggleMobileNav() {
+      const nav = document.getElementById('sidebarNav');
+      if (nav) nav.classList.toggle('mobile-open');
+    }
+
+    function setupScrollSpy() {
+      const sections = document.querySelectorAll('.endpoint-card, .docs-header');
+      const navLinks = document.querySelectorAll('.nav-link');
+
+      navLinks.forEach(l => {
+        l.addEventListener('click', () => {
+          const nav = document.getElementById('sidebarNav');
+          if (nav && window.innerWidth <= 900) {
+            nav.classList.remove('mobile-open');
+          }
+        });
+      });
+
+      window.addEventListener('scroll', () => {
+        let current = '';
+        sections.forEach(s => {
+          const top = s.offsetTop;
+          if (pageYOffset >= top - 80) {
+            current = s.getAttribute('id');
+          }
+        });
+        if (current) {
+          navLinks.forEach(l => {
+            l.classList.remove('active');
+            if (l.getAttribute('id') === `link-${current.replace('endpoint-', '')}`) {
+              l.classList.add('active');
+            }
+          });
+        }
+      });
+    }
+
+    window.onload = init;
+  </script>
+</body>
+</html>

@@ -3,3 +3,7 @@ node_modules/
 *.db
 .env
 dist/
+.DS_Store
+*.log
+*.zip
+

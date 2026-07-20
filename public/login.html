@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Security Gateway - WazoneIndia Suite</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --font-heading: 'Outfit', sans-serif;
+      --font-body: 'Plus Jakarta Sans', sans-serif;
+      --bg-primary: #0b0f19;
+      --bg-secondary: #131926;
+      --bg-tertiary: #1b2336;
+      --bg-glass: rgba(19, 25, 38, 0.75);
+      --accent-wa: #128c7e;
+      --accent-wa-light: #25d366;
+      --color-primary: #f8fafc;
+      --color-secondary: #94a3b8;
+      --color-muted: #64748b;
+      --color-border: rgba(255, 255, 255, 0.08);
+      --color-success: #10b981;
+      --color-error: #f43f5e;
+      --color-warning: #f59e0b;
+      --color-purple: #8b5cf6;
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 20px;
+      --transition-fast: 0.15s ease;
+      --transition-normal: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      --shadow-md: 0 8px 30px -4px rgba(0, 0, 0, 0.4);
+      --shadow-glow: 0 0 25px -5px rgba(37, 211, 102, 0.25);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg-primary);
+      color: var(--color-primary);
+      font-family: var(--font-body);
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 1.5rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Ambient Background Glows */
+    .bg-glow-1 {
+      position: absolute; width: 450px; height: 450px;
+      background: radial-gradient(circle, rgba(18, 140, 126, 0.15) 0%, rgba(0,0,0,0) 70%);
+      top: -150px; left: -150px; border-radius: 50%; pointer-events: none;
+    }
+    .bg-glow-2 {
+      position: absolute; width: 500px; height: 500px;
+      background: radial-gradient(circle, rgba(139, 92, 246, 0.1) 0%, rgba(0,0,0,0) 70%);
+      bottom: -150px; right: -150px; border-radius: 50%; pointer-events: none;
+    }
+
+    .login-container {
+      width: 100%;
+      max-width: 440px;
+      position: relative;
+      z-index: 10;
+      animation: fadeIn 0.6s ease;
+    }
+
+    .glass-panel {
+      background: var(--bg-glass);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-md);
+      padding: 2.25rem 2rem;
+      transition: all var(--transition-normal);
+    }
+
+    .brand-header {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    .brand-logo {
+      width: 50px;
+      height: 50px;
+      border-radius: var(--radius-md);
+      background: linear-gradient(135deg, var(--accent-wa), var(--accent-wa-light));
+      color: white;
+      font-size: 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: var(--shadow-glow);
+      margin-bottom: 0.75rem;
+    }
+    .brand-title {
+      font-family: var(--font-heading);
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      background: linear-gradient(to right, #fff, #94a3b8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .brand-subtitle {
+      font-size: 0.78rem;
+      color: var(--accent-wa-light);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-top: 0.25rem;
+    }
+
+    /* Auth Screens */
+    .auth-card {
+      display: none;
+      animation: slideUp 0.4s ease;
+    }
+    .auth-card.active {
+      display: block;
+    }
+
+    .section-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: var(--color-primary);
+    }
+    .section-desc {
+      font-size: 0.8rem;
+      color: var(--color-secondary);
+      margin-bottom: 1.5rem;
+      line-height: 1.4;
+    }
+
+    /* Forms */
+    .form-group {
+      margin-bottom: 1.25rem;
+      position: relative;
+    }
+    .form-group label {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--color-secondary);
+      margin-bottom: 0.4rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .input-wrapper {
+      position: relative;
+    }
+    .input-wrapper input {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      padding: 0.75rem 1rem;
+      color: white;
+      font-family: var(--font-body);
+      font-size: 0.9rem;
+      outline: none;
+      transition: all var(--transition-fast);
+    }
+    .input-wrapper input:focus {
+      border-color: var(--accent-wa-light);
+      background: rgba(255, 255, 255, 0.05);
+      box-shadow: 0 0 10px rgba(37, 211, 102, 0.1);
+    }
+
+    /* Buttons */
+    .btn {
+      width: 100%;
+      background: linear-gradient(135deg, var(--accent-wa), #0e6d62);
+      color: white;
+      border: none;
+      border-radius: var(--radius-sm);
+      padding: 0.8rem 1.2rem;
+      font-family: var(--font-heading);
+      font-weight: 600;
+      font-size: 0.95rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      transition: all var(--transition-fast);
+      box-shadow: 0 4px 12px rgba(18, 140, 126, 0.2);
+    }
+    .btn:hover {
+      background: linear-gradient(135deg, var(--accent-wa-light), var(--accent-wa));
+      box-shadow: var(--shadow-glow);
+      transform: translateY(-1px);
+    }
+    .btn:disabled {
+      background: var(--bg-tertiary);
+      color: var(--color-muted);
+      border-color: var(--color-border);
+      box-shadow: none;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .btn-secondary {
+      background: transparent;
+      border: 1px solid var(--color-border);
+      box-shadow: none;
+      color: var(--color-secondary);
+      margin-top: 0.75rem;
+    }
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.03);
+      color: white;
+      border-color: var(--color-secondary);
+      box-shadow: none;
+      transform: none;
+    }
+
+    /* Quick Swap Auth Modes */
+    .divider {
+      display: flex;
+      align-items: center;
+      text-align: center;
+      margin: 1.5rem 0;
+      font-size: 0.72rem;
+      color: var(--color-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .divider::before, .divider::after {
+      content: '';
+      flex: 1;
+      border-bottom: 1px solid var(--color-border);
+    }
+    .divider:not(:empty)::before { margin-right: .75rem; }
+    .divider:not(:empty)::after { margin-left: .75rem; }
+
+    /* TOTP QR Section */
+    .qr-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 1.25rem 0;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      padding: 1.25rem;
+    }
+    .qr-image-wrapper {
+      background: white;
+      padding: 8px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      width: 170px;
+      height: 170px;
+      margin-bottom: 0.75rem;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    }
+    .qr-image-wrapper img {
+      width: 100%;
+      height: 100%;
+      image-rendering: pixelated;
+    }
+    .secret-key-display {
+      font-family: monospace;
+      font-size: 0.8rem;
+      color: var(--accent-wa-light);
+      background: rgba(37, 211, 102, 0.05);
+      border: 1px dashed rgba(37, 211, 102, 0.2);
+      padding: 0.4rem 0.75rem;
+      border-radius: var(--radius-sm);
+      letter-spacing: 0.05em;
+      margin-bottom: 0.25rem;
+      cursor: pointer;
+      user-select: all;
+    }
+    .secret-key-hint {
+      font-size: 0.65rem;
+      color: var(--color-muted);
+    }
+
+    /* Passkey Button */
+    .passkey-btn {
+      background: linear-gradient(135deg, var(--color-purple), #6366f1);
+      box-shadow: 0 4px 12px rgba(139, 92, 246, 0.2);
+    }
+    .passkey-btn:hover {
+      background: linear-gradient(135deg, #a78bfa, var(--color-purple));
+      box-shadow: 0 0 20px rgba(139, 92, 246, 0.4);
+    }
+
+    /* Toast system */
+    .toast {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      background: var(--bg-secondary);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      padding: 0.75rem 1.25rem;
+      font-size: 0.82rem;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      z-index: 100;
+      box-shadow: var(--shadow-md);
+      transform: translateY(20px);
+      opacity: 0;
+      pointer-events: none;
+      transition: all var(--transition-normal);
+    }
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .toast-icon {
+      font-size: 1rem;
+    }
+    .toast-success { border-color: rgba(16, 185, 129, 0.3); color: var(--color-success); }
+    .toast-error { border-color: rgba(244, 63, 94, 0.3); color: var(--color-error); }
+    .toast-info { border-color: rgba(139, 92, 246, 0.3); color: var(--color-purple); }
+
+    /* Keyframe Animations */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.98); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Loading Spinner */
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(255,255,255,0.2);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @media (max-width: 600px) {
+      body {
+        padding: 1rem;
+        min-height: 100dvh;
+      }
+      .glass-panel {
+        padding: 1.5rem 1.15rem;
+        border-radius: var(--radius-md);
+      }
+      .input-wrapper input {
+        font-size: 16px !important; /* Prevents iOS auto-zoom */
+      }
+      .toast {
+        left: 1rem;
+        right: 1rem;
+        bottom: 1rem;
+        justify-content: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-glow-1"></div>
+  <div class="bg-glow-2"></div>
+
+  <div class="login-container">
+    <div class="glass-panel">
+      <!-- Brand Header -->
+      <div class="brand-header">
+        <div class="brand-logo">&#128274;</div>
+        <div class="brand-title">WazoneIndia Suite</div>
+        <div class="brand-subtitle">Security Gateway</div>
+      </div>
+
+      <!-- Loading State Overlay -->
+      <div id="checkLoadingCard" class="auth-card active" style="text-align: center; padding: 2rem 0;">
+        <div class="spinner" style="width: 32px; height: 32px; margin: 0 auto 1rem auto; border-width: 3px; border-top-color: var(--accent-wa-light);"></div>
+        <div style="font-size: 0.85rem; color: var(--color-secondary);">Securing session gateway...</div>
+      </div>
+
+      <!-- CARD 1: Username & Password Sign In -->
+      <div id="passwordLoginCard" class="auth-card">
+        <div class="section-title">🔑 Account Sign In</div>
+        <div class="section-desc">Enter your administrator username and password to access the management dashboard.</div>
+
+        <form id="passwordLoginForm" onsubmit="handlePasswordLogin(event)">
+          <div class="form-group">
+            <label for="loginUsername">Username</label>
+            <div class="input-wrapper">
+              <input type="text" id="loginUsername" required autocomplete="username" placeholder="e.g. admin">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="loginPassword">Password</label>
+            <div class="input-wrapper">
+              <input type="password" id="loginPassword" required autocomplete="current-password" placeholder="••••••••">
+            </div>
+          </div>
+          <button type="submit" id="btnPasswordLogin" class="btn">
+            Sign In
+          </button>
+        </form>
+      </div>
+
+      <!-- CARD 2: First-Time Setup Wizard (Admin Credentials) -->
+      <div id="setupAccountCard" class="auth-card">
+        <div class="section-title">✨ Initialize Admin Gate</div>
+        <div class="section-desc">Create your primary administrator account credentials.</div>
+
+        <form id="setupAccountForm" onsubmit="handleAccountSetup(event)">
+          <div class="form-group">
+            <label for="setupUsername">Username</label>
+            <div class="input-wrapper">
+              <input type="text" id="setupUsername" required placeholder="admin" value="admin">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="setupPassword">Password</label>
+            <div class="input-wrapper">
+              <input type="password" id="setupPassword" required minlength="8" placeholder="Must be at least 8 characters">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="setupConfirmPassword">Confirm Password</label>
+            <div class="input-wrapper">
+              <input type="password" id="setupConfirmPassword" required minlength="8" placeholder="Re-enter password">
+            </div>
+          </div>
+          <button type="submit" id="btnSetupAccount" class="btn">
+            Configure Credentials & Continue
+          </button>
+        </form>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div id="toast" class="toast">
+    <span class="toast-icon" id="toastIcon"></span>
+    <span id="toastMsg"></span>
+  </div>
+
+  <script>
+    const BASE = window.location.origin;
+    let currentCard = 'checkLoadingCard';
+
+    // Helper: Toast System
+    let toastTimer = null;
+    function showToast(msg, type = 'info') {
+      const toast = document.getElementById('toast');
+      const icon = document.getElementById('toastIcon');
+      const text = document.getElementById('toastMsg');
+      
+      toast.className = 'toast';
+      toast.classList.add('toast-' + type);
+      
+      if (type === 'success') icon.innerHTML = '&#9989;';
+      else if (type === 'error') icon.innerHTML = '&#10060;';
+      else icon.innerHTML = '&#8505;&#65039;';
+      
+      text.textContent = msg;
+      
+      toast.classList.add('show');
+      
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        toast.classList.remove('show');
+      }, 4000);
+    }
+
+    function switchCard(cardId) {
+      document.querySelectorAll('.auth-card').forEach(c => c.classList.remove('active'));
+      document.getElementById(cardId).classList.add('active');
+      currentCard = cardId;
+    }
+
+    // Step 0: Check System Setup Status on Load
+    async function checkAuthStatus() {
+      try {
+        const res = await fetch(BASE + '/api/auth/status');
+        const data = await res.json();
+        
+        if (data.success) {
+          if (!data.adminExists) {
+            switchCard('setupAccountCard');
+          } else {
+            switchCard('passwordLoginCard');
+          }
+        } else {
+          showToast('Failed to check gateway status: ' + data.error, 'error');
+        }
+      } catch (err) {
+        showToast('Cannot connect to security gateway status API', 'error');
+        console.error(err);
+      }
+    }
+
+    // Step 1: Handle Setup Account Form submission
+    async function handleAccountSetup(e) {
+      e.preventDefault();
+      const username = document.getElementById('setupUsername').value.trim();
+      const pass = document.getElementById('setupPassword').value;
+      const confirm = document.getElementById('setupConfirmPassword').value;
+
+      if (pass !== confirm) {
+        showToast('Passwords do not match', 'error');
+        return;
+      }
+
+      const btn = document.getElementById('btnSetupAccount');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Configuring...';
+
+      try {
+        const res = await fetch(BASE + '/api/auth/setup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password: pass })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          showToast('Account created successfully! Redirecting...', 'success');
+          setTimeout(() => window.location.href = '/', 1000);
+        } else {
+          showToast(data.error || 'Failed to create account', 'error');
+        }
+      } catch (err) {
+        showToast('Connection error during setup', 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Configure Credentials & Continue';
+      }
+    }
+
+    // Step 2: Login flow (Username & Password verification)
+    async function handlePasswordLogin(e) {
+      e.preventDefault();
+      const username = document.getElementById('loginUsername').value.trim();
+      const pass = document.getElementById('loginPassword').value;
+      const btn = document.getElementById('btnPasswordLogin');
+      
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Verifying...';
+
+      try {
+        const res = await fetch(BASE + '/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password: pass })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          showToast('Access granted! Redirecting...', 'success');
+          setTimeout(() => window.location.href = '/', 1000);
+        } else {
+          showToast(data.error || 'Invalid username or password', 'error');
+        }
+      } catch (err) {
+        showToast('Connection error during login', 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Sign In';
+      }
+    }
+
+    // Initialize on page load
+    window.addEventListener('DOMContentLoaded', checkAuthStatus);
+  </script>
+</body>
+</html>
