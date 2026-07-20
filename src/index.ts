@@ -37,5 +37,12 @@ if (typeof process !== 'undefined') {
   } catch (err) {
     // Ignore diagnostic failures
   }
+
+  // Auto-start server when run in Node environment (e.g. by Hostinger Node runner)
+  console.log('[Bootloader] Booting server from core entry point...');
+  // @ts-ignore
+  import('../server.js').catch((err: any) => {
+    console.error('[Bootloader Error] Failed to load server.js:', err);
+  });
 }
 
