@@ -1,20 +1,296 @@
-import http from 'http';
+import { createRequire } from 'module';
 import fs from 'fs';
-import path from 'path';
-import { URL } from 'url';
-import { rm } from 'fs/promises';
 import { join } from 'path';
-import BerryProtocol from './dist/index.js';
-import { generateWAMessageFromContent } from '@berrysdk/transport';
-import pino from 'pino';
-import qrcode from 'qrcode';
-import crypto from 'crypto';
-import {
+
+const require = createRequire(import.meta.url);
+const Module = require('module');
+const originalLoad = Module._load;
+
+class PreparedStatement {
+  constructor(db, sql) {
+    this.db = db;
+    this.sql = sql.trim().replace(/\s+/g, ' ');
+  }
+
+  run(...args) {
+    if (args.length === 1 && Array.isArray(args[0])) {
+      args = args[0];
+    }
+    const result = this.execute(args);
+    this.db.save();
+    return { changes: result.changes || 0, lastInsertRowid: result.lastInsertRowid || 0 };
+  }
+
+  get(...args) {
+    if (args.length === 1 && Array.isArray(args[0])) {
+      args = args[0];
+    }
+    const rows = this.execute(args);
+    return rows.length > 0 ? rows[0] : undefined;
+  }
+
+  all(...args) {
+    if (args.length === 1 && Array.isArray(args[0])) {
+      args = args[0];
+    }
+    return this.execute(args);
+  }
+
+  execute(args) {
+    const sql = this.sql;
+    
+    if (sql.toUpperCase().startsWith('INSERT') || sql.toUpperCase().startsWith('REPLACE')) {
+      const match = sql.match(/(?:INSERT|INSERT OR REPLACE|REPLACE)\s+INTO\s+(\w+)\s*\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)/i);
+      if (match) {
+        const table = match[1].toLowerCase();
+        const columns = match[2].split(',').map(s => s.trim());
+        if (!this.db.data[table]) this.db.data[table] = [];
+        
+        const row = {};
+        columns.forEach((col, idx) => {
+          row[col] = args[idx];
+        });
+        
+        if (row.id) {
+          const existingIdx = this.db.data[table].findIndex(r => r.id === row.id);
+          if (existingIdx !== -1) {
+            this.db.data[table][existingIdx] = { ...this.db.data[table][existingIdx], ...row };
+            return { changes: 1, lastInsertRowid: existingIdx + 1 };
+          }
+        }
+        
+        this.db.data[table].push(row);
+        return { changes: 1, lastInsertRowid: this.db.data[table].length };
+      }
+    }
+    
+    if (sql.toUpperCase().startsWith('UPDATE')) {
+      const match = sql.match(/UPDATE\s+(\w+)\s+SET\s+(.+?)(?:\s+WHERE\s+(.+))?$/i);
+      if (match) {
+        const table = match[1].toLowerCase();
+        const setPart = match[2];
+        const wherePart = match[3];
+        
+        if (!this.db.data[table]) this.db.data[table] = [];
+        
+        const updates = setPart.split(',').map(s => s.trim());
+        let rowsToUpdate = this.db.data[table];
+        
+        const setPlaceholdersCount = (setPart.match(/\?/g) || []).length;
+        const setArgs = args.slice(0, setPlaceholdersCount);
+        const whereArgs = args.slice(setPlaceholdersCount);
+        
+        let changesCount = 0;
+        rowsToUpdate.forEach(row => {
+          if (this.evalConditions(row, wherePart, whereArgs)) {
+            let setArgIdx = 0;
+            updates.forEach(update => {
+              const parts = update.split('=');
+              const col = parts[0].trim();
+              const valExpr = parts[1].trim();
+              
+              if (valExpr === '?') {
+                row[col] = setArgs[setArgIdx++];
+              } else if (valExpr.includes('+')) {
+                row[col] = (row[col] || 0) + 1;
+              } else {
+                row[col] = JSON.parse(valExpr);
+              }
+            });
+            changesCount++;
+          }
+        });
+        return { changes: changesCount };
+      }
+    }
+    
+    if (sql.toUpperCase().startsWith('DELETE FROM')) {
+      const match = sql.match(/DELETE\s+FROM\s+(\w+)(?:\s+WHERE\s+(.+))?$/i);
+      if (match) {
+        const table = match[1].toLowerCase();
+        const wherePart = match[2];
+        
+        if (!this.db.data[table]) this.db.data[table] = [];
+        
+        const initialLength = this.db.data[table].length;
+        this.db.data[table] = this.db.data[table].filter(row => !this.evalConditions(row, wherePart, args));
+        return { changes: initialLength - this.db.data[table].length };
+      }
+    }
+    
+    if (sql.toUpperCase().startsWith('SELECT')) {
+      const countMatch = sql.match(/SELECT\s+COUNT\(\*\)\s+as\s+count\s+FROM\s+(\w+)/i);
+      if (countMatch) {
+        const table = countMatch[1].toLowerCase();
+        const count = this.db.data[table] ? this.db.data[table].length : 0;
+        return [{ count }];
+      }
+      
+      const selectMatch = sql.match(/SELECT\s+(.+?)\s+FROM\s+(\w+)(?:\s+WHERE\s+(.+?))?(?:\s+ORDER\s+BY\s+(.+?))?(?:\s+LIMIT\s+(\d+))?$/i);
+      if (selectMatch) {
+        const columnsStr = selectMatch[1];
+        const table = selectMatch[2].toLowerCase();
+        const wherePart = selectMatch[3];
+        const orderByPart = selectMatch[4];
+        const limitVal = selectMatch[5] ? parseInt(selectMatch[5], 10) : null;
+        
+        let rows = this.db.data[table] ? JSON.parse(JSON.stringify(this.db.data[table])) : [];
+        
+        if (wherePart) {
+          rows = rows.filter(row => this.evalConditions(row, wherePart, args));
+        }
+        
+        if (orderByPart) {
+          const parts = orderByPart.trim().split(/\s+/);
+          const orderCol = parts[0];
+          const isDesc = orderByPart.toLowerCase().includes('desc');
+          rows.sort((a, b) => {
+            let valA = orderCol === 'rowid' ? (a.rowid !== undefined ? a.rowid : rows.indexOf(a)) : a[orderCol];
+            let valB = orderCol === 'rowid' ? (b.rowid !== undefined ? b.rowid : rows.indexOf(b)) : b[orderCol];
+            if (valA < valB) return isDesc ? 1 : -1;
+            if (valA > valB) return isDesc ? -1 : 1;
+            return 0;
+          });
+        }
+        
+        if (limitVal !== null) {
+          rows = rows.slice(0, limitVal);
+        }
+        
+        if (columnsStr.trim() !== '*') {
+          const projectCols = columnsStr.split(',').map(s => s.trim());
+          rows = rows.map(row => {
+            const projected = {};
+            projectCols.forEach(col => {
+              projected[col] = row[col];
+            });
+            return projected;
+          });
+        }
+        
+        return rows;
+      }
+    }
+    
+    return [];
+  }
+
+  evalConditions(row, wherePart, args) {
+    if (!wherePart) return true;
+    
+    let placeholderIdx = 0;
+    
+    if (wherePart.trim() === 'ip = ?') return row.ip === args[0];
+    if (wherePart.trim() === 'id = ?') return row.id === args[0];
+    if (wherePart.trim() === 'username = ?') return row.username === args[0];
+    if (wherePart.trim() === 'user_id = ?') return row.user_id === args[0];
+    if (wherePart.trim() === 'jid = ?') return row.jid === args[0];
+    if (wherePart.trim() === 'remote_jid = ?') return row.remote_jid === args[0];
+    if (wherePart.trim() === 'id = ? AND user_id = ?') return row.id === args[0] && row.user_id === args[1];
+    
+    let expr = wherePart
+      .replace(/AND/gi, '&&')
+      .replace(/OR/gi, '||')
+      .replace(/IS NULL/gi, '== null')
+      .replace(/IS NOT NULL/gi, '!= null')
+      .replace(/=/g, '==')
+      .replace(/===/g, '==');
+      
+    while (expr.includes('?')) {
+      const val = args[placeholderIdx++];
+      const serializedVal = typeof val === 'string' ? `"${val.replace(/"/g, '\\"')}"` : val;
+      expr = expr.replace('?', serializedVal);
+    }
+    
+    try {
+      const func = new Function('row', `
+        with(row) {
+          try {
+            return !!(${expr});
+          } catch(e) {
+            return false;
+          }
+        }
+      `);
+      return func(row);
+    } catch (e) {
+      return false;
+    }
+  }
+}
+
+class JsonSqliteDb {
+  constructor(filepath) {
+    this.filepath = filepath.replace(/\.db$/, '.json');
+    this.data = {
+      security_users: [],
+      security_credentials: [],
+      security_sessions: [],
+      security_rate_limits: [],
+      incoming_messages: [],
+      chat_threads: [],
+      automation_webhooks: [],
+      auto_responders: [],
+      contacts: [],
+      messages: []
+    };
+    this.load();
+  }
+
+  load() {
+    try {
+      if (fs.existsSync(this.filepath)) {
+        const fileContent = fs.readFileSync(this.filepath, 'utf8');
+        if (fileContent.trim().startsWith('{')) {
+          this.data = JSON.parse(fileContent);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  save() {
+    try {
+      fs.writeFileSync(this.filepath, JSON.stringify(this.data, null, 2), 'utf8');
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  exec(sql) {
+    this.save();
+  }
+
+  prepare(sql) {
+    return new PreparedStatement(this, sql);
+  }
+}
+
+// Register global module load interceptor
+Module._load = function (request, parent, isMain) {
+  if (request === 'better-sqlite3') {
+    return JsonSqliteDb;
+  }
+  return originalLoad.apply(this, arguments);
+};
+
+// Defer other imports to execute after interceptor is active
+const { default: http } = await import('http');
+const { default: path } = await import('path');
+const { URL } = await import('url');
+const { rm } = await import('fs/promises');
+const { default: BerryProtocol } = await import('./dist/index.js');
+const { generateWAMessageFromContent } = await import('@berrysdk/transport');
+const { default: pino } = await import('pino');
+const { default: qrcode } = await import('qrcode');
+const { default: crypto } = await import('crypto');
+const {
   generateRegistrationOptions,
   verifyRegistrationResponse,
   generateAuthenticationOptions,
   verifyAuthenticationResponse,
-} from '@simplewebauthn/server';
+} = await import('@simplewebauthn/server');
 
 process.on('uncaughtException', (err) => {
   console.error('[Fatal Uncaught Exception]', err);
@@ -30,7 +306,7 @@ process.on('unhandledRejection', (reason) => {
 const dbPath = join(process.cwd(), 'berrysdk.db');
 let securityDb;
 try {
-  const { default: Database } = await import('better-sqlite3');
+  const Database = require('better-sqlite3');
   securityDb = new Database(dbPath);
 
   // Initialize security tables
