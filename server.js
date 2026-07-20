@@ -8,7 +8,6 @@ import BerryProtocol from './dist/index.js';
 import { generateWAMessageFromContent } from '@berrysdk/transport';
 import pino from 'pino';
 import qrcode from 'qrcode';
-import Database from 'better-sqlite3';
 import crypto from 'crypto';
 import {
   generateRegistrationOptions,
@@ -31,6 +30,7 @@ process.on('unhandledRejection', (reason) => {
 const dbPath = join(process.cwd(), 'berrysdk.db');
 let securityDb;
 try {
+  const { default: Database } = await import('better-sqlite3');
   securityDb = new Database(dbPath);
 
   // Initialize security tables
