@@ -533,9 +533,7 @@ function createAndSetSession(res, req, userId) {
   securityDb.prepare('INSERT INTO security_sessions (id, user_id, ip, user_agent, expires_at) VALUES (?, ?, ?, ?, ?)')
     .run(sessionToken, userId, req.socket?.remoteAddress || '127.0.0.1', req.headers['user-agent'] || '', expiresAt.toISOString());
 
-  const isSecure = req.headers['x-forwarded-proto'] === 'https';
-  const secureFlag = isSecure ? '; Secure' : '';
-  res.setHeader('Set-Cookie', `wz_session=${sessionToken}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${30 * 24 * 60 * 60}${secureFlag}`);
+  res.setHeader('Set-Cookie', `wz_session=${sessionToken}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${30 * 24 * 60 * 60}; Secure`);
 }
 
 // Verify that the request has the correct API key/token for the given session ID or valid admin session
@@ -1186,9 +1184,7 @@ const server = http.createServer(async (req, res) => {
       securityDb.prepare('INSERT INTO security_sessions (id, user_id, ip, user_agent, expires_at) VALUES (?, ?, ?, ?, ?)')
         .run(sessionToken, setupState.userId, req.socket.remoteAddress, req.headers['user-agent'], expiresAt.toISOString());
 
-      const isSecure = req.headers['x-forwarded-proto'] === 'https';
-      const secureFlag = isSecure ? '; Secure' : '';
-      res.setHeader('Set-Cookie', `wz_session=${sessionToken}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${30 * 24 * 60 * 60}${secureFlag}`);
+      res.setHeader('Set-Cookie', `wz_session=${sessionToken}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${30 * 24 * 60 * 60}; Secure`);
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true }));
@@ -1397,9 +1393,7 @@ const server = http.createServer(async (req, res) => {
 
       activeChallenges.delete(partialToken);
 
-      const isSecure = req.headers['x-forwarded-proto'] === 'https';
-      const secureFlag = isSecure ? '; Secure' : '';
-      res.setHeader('Set-Cookie', `wz_session=${sessionToken}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${30 * 24 * 60 * 60}${secureFlag}`);
+      res.setHeader('Set-Cookie', `wz_session=${sessionToken}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${30 * 24 * 60 * 60}; Secure`);
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true }));
@@ -1505,11 +1499,9 @@ const server = http.createServer(async (req, res) => {
         securityDb.prepare('INSERT INTO security_sessions (id, user_id, ip, user_agent, expires_at) VALUES (?, ?, ?, ?, ?)')
           .run(sessionToken, userId, req.socket.remoteAddress, req.headers['user-agent'], expiresAt.toISOString());
 
-        const isSecure = req.headers['x-forwarded-proto'] === 'https';
-        const secureFlag = isSecure ? '; Secure' : '';
         res.setHeader('Set-Cookie', [
-          `wz_session=${sessionToken}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${30 * 24 * 60 * 60}${secureFlag}`,
-          `wz_login_challenge=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0`
+          `wz_session=${sessionToken}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${30 * 24 * 60 * 60}; Secure`,
+          `wz_login_challenge=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`
         ]);
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -1531,7 +1523,7 @@ const server = http.createServer(async (req, res) => {
       if (currentSessionId) {
         securityDb.prepare('UPDATE security_sessions SET revoked = 1 WHERE id = ?').run(currentSessionId);
       }
-      res.setHeader('Set-Cookie', 'wz_session=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0');
+      res.setHeader('Set-Cookie', 'wz_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0');
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true }));
     } catch (err) {
