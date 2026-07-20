@@ -1021,18 +1021,15 @@ const server = http.createServer(async (req, res) => {
 
   if (sessionCookie) {
     try {
-      const sessionRow = securityDb.prepare(`
-        SELECT s.id, s.user_id, u.username 
-        FROM security_sessions s
-        JOIN security_users u ON s.user_id = u.id
-        WHERE s.id = ? AND s.revoked = 0 AND s.expires_at > ?
-      `).get(sessionCookie, new Date().toISOString());
-
-      if (sessionRow) {
-        currentUser = { id: sessionRow.user_id, username: sessionRow.username };
-        currentSessionId = sessionRow.id;
-        securityDb.prepare('UPDATE security_sessions SET last_active = ? WHERE id = ?')
-          .run(new Date().toISOString(), sessionCookie);
+      const sessionRow = securityDb.prepare('SELECT id, user_id, revoked, expires_at FROM security_sessions WHERE id = ?').get(sessionCookie);
+      if (sessionRow && sessionRow.revoked === 0 && new Date(sessionRow.expires_at) > new Date()) {
+        const userRow = securityDb.prepare('SELECT id, username FROM security_users WHERE id = ?').get(sessionRow.user_id);
+        if (userRow) {
+          currentUser = { id: userRow.id, username: userRow.username };
+          currentSessionId = sessionRow.id;
+          securityDb.prepare('UPDATE security_sessions SET last_active = ? WHERE id = ?')
+            .run(new Date().toISOString(), sessionCookie);
+        }
       }
     } catch (e) {
       console.error('[Security] Session resolve error:', e.message);
