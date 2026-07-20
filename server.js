@@ -818,6 +818,17 @@ const server = http.createServer(async (req, res) => {
 
   // --- SECURITY ENDPOINTS ---
 
+  // GET /error_boot.log
+  if (req.method === 'GET' && pathname === '/error_boot.log') {
+    res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+    try {
+      res.end(fs.readFileSync(join(process.cwd(), 'error_boot.log')));
+    } catch (_) {
+      res.end('No boot error log found.');
+    }
+    return;
+  }
+
   // GET /api/auth/status
   if (req.method === 'GET' && pathname === '/api/auth/status') {
     try {
