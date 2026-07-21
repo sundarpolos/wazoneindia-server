@@ -1128,6 +1128,19 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // GET /api/debug/logs
+  if (req.method === 'GET' && pathname === '/api/debug/logs') {
+    try {
+      const logs = fs.readFileSync(join(process.cwd(), 'request_debug.log'), 'utf8');
+      res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end(logs);
+    } catch (e) {
+      res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end(`Failed to read logs: ${e.message}`);
+    }
+    return;
+  }
+
   // GET /api/auth/status
   if (req.method === 'GET' && pathname === '/api/auth/status') {
     try {
