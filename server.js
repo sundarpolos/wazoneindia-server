@@ -301,6 +301,10 @@ class JsonSqliteDb {
   prepare(sql) {
     return new PreparedStatement(this, sql);
   }
+
+  close() {
+    this.save();
+  }
 }
 
 // Register global module load interceptor
