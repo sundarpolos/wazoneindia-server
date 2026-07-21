@@ -3,6 +3,13 @@ import fs from 'fs';
 import { join } from 'path';
 
 const require = createRequire(import.meta.url);
+
+function debugLog(msg) {
+  const time = new Date().toISOString();
+  try {
+    fs.appendFileSync(join(process.cwd(), 'request_debug.log'), `[${time}] ${msg}\n`);
+  } catch (err) {}
+}
 const Module = require('module');
 const originalLoad = Module._load;
 
@@ -1017,11 +1024,15 @@ const server = http.createServer(async (req, res) => {
   let currentUser = null;
   let currentSessionId = null;
 
+  debugLog(`Incoming request: ${req.method} ${pathname} cookies=${JSON.stringify(cookies)}`);
+
   if (sessionCookie) {
     try {
       const sessionRow = securityDb.prepare('SELECT id, user_id FROM security_sessions WHERE id = ? AND revoked = 0 AND expires_at > ?').get(sessionCookie, new Date().toISOString());
+      debugLog(`Resolved sessionRow: ${JSON.stringify(sessionRow || null)}`);
       if (sessionRow) {
         const userRow = securityDb.prepare('SELECT id, username FROM security_users WHERE id = ?').get(sessionRow.user_id);
+        debugLog(`Resolved userRow: ${JSON.stringify(userRow || null)}`);
         if (userRow) {
           currentUser = { id: userRow.id, username: userRow.username };
           currentSessionId = sessionRow.id;
@@ -1030,8 +1041,11 @@ const server = http.createServer(async (req, res) => {
         }
       }
     } catch (e) {
+      debugLog(`Session resolve error: ${e.message}`);
       console.error('[Security] Session resolve error:', e.message);
     }
+  } else {
+    debugLog(`No wz_session cookie found in request`);
   }
 
   // Serve static files from ./public
