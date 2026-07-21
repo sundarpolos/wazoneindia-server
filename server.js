@@ -341,8 +341,9 @@ process.on('unhandledRejection', (reason) => {
 
 const dbPath = join(process.cwd(), 'berrysdk.db');
 let securityDb;
+let Database;
 try {
-  const Database = require('better-sqlite3');
+  Database = require('better-sqlite3');
   securityDb = new Database(dbPath);
 
   // Initialize security tables
