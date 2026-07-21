@@ -3,6 +3,18 @@ import fs from 'fs';
 import { join } from 'path';
 
 const require = createRequire(import.meta.url);
+
+// Temporary database wipe reset hook (Option 2)
+try {
+  console.log('[Reset Hook] Wiping database files and session caches...');
+  fs.rmSync(join(process.cwd(), 'berrysdk.json'), { force: true });
+  fs.rmSync(join(process.cwd(), 'berrysdk.db'), { force: true });
+  fs.rmSync(join(process.cwd(), '.berry-creds'), { recursive: true, force: true });
+  console.log('[Reset Hook] Wipe complete!');
+} catch (e) {
+  console.error('[Reset Hook Error]', e);
+}
+
 const Module = require('module');
 const originalLoad = Module._load;
 
