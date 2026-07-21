@@ -178,17 +178,41 @@ class PreparedStatement {
   evalConditions(row, wherePart, args) {
     if (!wherePart) return true;
     
-    // Merge schema defaults to prevent ReferenceErrors in JSON fallback DB
-    const rowCopy = { 
+    // Complete set of database column fallbacks to prevent ReferenceErrors
+    const merged = { 
+      id: null,
+      username: null,
+      user_id: null,
+      session_id: null,
+      active: 1,
       revoked: 0, 
       last_active: null, 
+      expires_at: null,
       message_type: 'text', 
       from_me: 0, 
-      active: 1,
       attempts: 0,
+      last_attempt: null,
       unread_count: 0,
+      jid: null,
+      remote_jid: null,
+      timestamp: null,
+      keyword: null,
+      match_type: 'contains',
+      reply_text: null,
+      ip: null,
+      url: null,
       ...row 
     };
+
+    // Proxy fallback mechanism to guarantee zero ReferenceErrors for missing query properties in 'with' blocks
+    const rowCopy = new Proxy(merged, {
+      has(target, prop) {
+        return true;
+      },
+      get(target, prop) {
+        return prop in target ? target[prop] : undefined;
+      }
+    });
 
     let placeholderIdx = 0;
     
