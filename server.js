@@ -185,15 +185,27 @@ class PreparedStatement {
   evalConditions(row, wherePart, args) {
     if (!wherePart) return true;
     
+    // Merge schema defaults to prevent ReferenceErrors in JSON fallback DB
+    const rowCopy = { 
+      revoked: 0, 
+      last_active: null, 
+      message_type: 'text', 
+      from_me: 0, 
+      active: 1,
+      attempts: 0,
+      unread_count: 0,
+      ...row 
+    };
+
     let placeholderIdx = 0;
     
-    if (wherePart.trim() === 'ip = ?') return row.ip === args[0];
-    if (wherePart.trim() === 'id = ?') return row.id === args[0];
-    if (wherePart.trim() === 'username = ?') return row.username === args[0];
-    if (wherePart.trim() === 'user_id = ?') return row.user_id === args[0];
-    if (wherePart.trim() === 'jid = ?') return row.jid === args[0];
-    if (wherePart.trim() === 'remote_jid = ?') return row.remote_jid === args[0];
-    if (wherePart.trim() === 'id = ? AND user_id = ?') return row.id === args[0] && row.user_id === args[1];
+    if (wherePart.trim() === 'ip = ?') return rowCopy.ip === args[0];
+    if (wherePart.trim() === 'id = ?') return rowCopy.id === args[0];
+    if (wherePart.trim() === 'username = ?') return rowCopy.username === args[0];
+    if (wherePart.trim() === 'user_id = ?') return rowCopy.user_id === args[0];
+    if (wherePart.trim() === 'jid = ?') return rowCopy.jid === args[0];
+    if (wherePart.trim() === 'remote_jid = ?') return rowCopy.remote_jid === args[0];
+    if (wherePart.trim() === 'id = ? AND user_id = ?') return rowCopy.id === args[0] && rowCopy.user_id === args[1];
     
     let expr = wherePart
       .replace(/AND/gi, '&&')
@@ -219,7 +231,7 @@ class PreparedStatement {
           }
         }
       `);
-      return func(row);
+      return func(rowCopy);
     } catch (e) {
       return false;
     }
