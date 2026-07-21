@@ -1100,6 +1100,20 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // GET /api/debug/sessions
+  if (req.method === 'GET' && pathname === '/api/debug/sessions') {
+    try {
+      const users = securityDb.prepare('SELECT id, username FROM security_users').all();
+      const sessions = securityDb.prepare('SELECT id, user_id, ip, last_active, expires_at, revoked FROM security_sessions').all();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, users, sessions }));
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: e.message }));
+    }
+    return;
+  }
+
   // GET /api/auth/status
   if (req.method === 'GET' && pathname === '/api/auth/status') {
     try {
