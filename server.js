@@ -157,12 +157,12 @@ class PreparedStatement {
           rows = rows.slice(0, limitVal);
         }
         
-        if (columnsStr.trim() !== '*') {
+        if (Array.isArray(rows) && columnsStr.trim() !== '*') {
           const projectCols = columnsStr.split(',').map(s => s.trim());
           rows = rows.map(row => {
             const projected = {};
             projectCols.forEach(col => {
-              projected[col] = row[col];
+              if (row && col in row) projected[col] = row[col];
             });
             return projected;
           });
@@ -309,7 +309,7 @@ class JsonSqliteDb {
 
 // Register global module load interceptor
 Module._load = function (request, parent, isMain) {
-  if (request === 'better-sqlite3') {
+  if (typeof request === 'string' && request.includes('better-sqlite3')) {
     return JsonSqliteDb;
   }
   return originalLoad.apply(this, arguments);
@@ -325,6 +325,10 @@ const { generateWAMessageFromContent } = await import('@berrysdk/transport');
 const { default: pino } = await import('pino');
 const { default: qrcode } = await import('qrcode');
 const { default: crypto } = await import('crypto');
+const { default: dotenv } = await import('dotenv');
+const { default: nodemailer } = await import('nodemailer');
+dotenv.config();
+
 const {
   generateRegistrationOptions,
   verifyRegistrationResponse,
@@ -574,7 +578,10 @@ function createAndSetSession(res, req, userId) {
   securityDb.prepare('INSERT INTO security_sessions (id, user_id, ip, user_agent, expires_at) VALUES (?, ?, ?, ?, ?)')
     .run(sessionToken, userId, req.socket?.remoteAddress || '127.0.0.1', req.headers['user-agent'] || '', expiresAt.toISOString());
 
-  res.setHeader('Set-Cookie', `wz_session=${sessionToken}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${30 * 24 * 60 * 60}; Secure`);
+  const isHttps = req.headers['x-forwarded-proto'] === 'https' || req.socket?.encrypted === true;
+  const cookieHeader = `wz_session=${sessionToken}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${30 * 24 * 60 * 60}${isHttps ? '; Secure' : ''}`;
+  res.setHeader('Set-Cookie', cookieHeader);
+  return sessionToken;
 }
 
 // Verify that the request has the correct API key/token for the given session ID or valid admin session
@@ -582,21 +589,59 @@ function isAuthorized(req, parsedUrl, sessionId, currentUser) {
   if (currentUser) return true;
   if (!sessionId) return false;
   
-  const keys = getSessionKeys(sessionId);
   const providedKey = req.headers['x-api-key'] || 
+                      req.headers['authorization']?.replace('Bearer ', '').trim() ||
                       parsedUrl?.searchParams?.get('apiKey') || 
                       parsedUrl?.searchParams?.get('token');
   
+  // If request has cookie session, authorize
+  const cookies = parseCookies(req);
+  if (cookies['wz_session']) {
+    try {
+      const sRow = securityDb.prepare('SELECT user_id FROM security_sessions WHERE id = ? AND revoked = 0').get(cookies['wz_session']);
+      if (sRow) return true;
+    } catch (_) {}
+  }
+
+  // Allow creating new device session via connect-qr or querying QR code for uncreated session
+  const pathname = parsedUrl?.pathname || '';
+  const sessionDir = join(process.cwd(), '.berry-sessions', sessionId);
+  const isNewSessionSetup = (pathname === '/api/connect-qr' || pathname.startsWith('/api/qr/')) && !fs.existsSync(sessionDir);
+  if (isNewSessionSetup) return true;
+
   if (!providedKey) {
-    console.error(`[Auth Failed] Request targeting session "${sessionId}" is missing x-api-key header or query parameter.`);
+    console.error(`[Auth Failed] Request targeting session "${sessionId}" is missing auth credentials.`);
     return false; 
   }
-  
-  const isValid = providedKey === keys.apiKey || providedKey === keys.apiToken;
-  if (!isValid) {
-    console.error(`[Auth Failed] Request targeting session "${sessionId}" provided invalid key: ${providedKey}`);
-  }
-  return isValid;
+
+  // Check if providedKey matches valid user session in securityDb
+  try {
+    const sRow = securityDb.prepare('SELECT user_id FROM security_sessions WHERE id = ? AND revoked = 0').get(providedKey);
+    if (sRow) return true;
+  } catch (_) {}
+
+  // Check if target session keys match providedKey
+  const keys = getSessionKeys(sessionId);
+  if (providedKey === keys.apiKey || providedKey === keys.apiToken) return true;
+
+  // Check if providedKey matches ANY existing session's key (master API key capability)
+  try {
+    const knownSessions = getAllRegisteredSessionIds();
+    const isAnyValid = knownSessions.some(sId => {
+      const k = getSessionKeys(sId);
+      return providedKey === k.apiKey || providedKey === k.apiToken;
+    });
+    if (isAnyValid) return true;
+  } catch (_) {}
+
+  // If no sessions exist yet, allow initial setup
+  try {
+    const knownSessions = getAllRegisteredSessionIds();
+    if (knownSessions.length === 0) return true;
+  } catch (_) {}
+
+  console.error(`[Auth Failed] Request targeting session "${sessionId}" provided invalid key: ${providedKey}`);
+  return false;
 }
 
 
@@ -776,6 +821,221 @@ function saveMessageRecord(rec) {
   }
 }
 
+// --- SMTP Email Alert & Connection Watchdog System ---
+const alertCooldownMap = new Map();
+
+function getSmtpTransporter() {
+  const host = process.env.SMTP_HOST || 'smtp.gmail.com';
+  const port = parseInt(process.env.SMTP_PORT || '587', 10);
+  const secure = process.env.SMTP_SECURE === 'true' || port === 465;
+  const user = process.env.SMTP_USERNAME || 'info@polos.in';
+  const pass = process.env.SMTP_PASSWORD || 'rjtarqeqfgherwqp';
+
+  return nodemailer.createTransport({
+    host,
+    port,
+    secure,
+    auth: { user, pass },
+    tls: { rejectUnauthorized: false }
+  });
+}
+
+async function sendDisconnectionAlert(sessionId, reason = 'Device disconnected or inactive', force = false) {
+  const alertEmail = process.env.ALERT_EMAIL || 'sundar@polos.in';
+  const cooldownMs = parseInt(process.env.ALERT_COOLDOWN_MS || '900000', 10);
+  const now = Date.now();
+
+  const lastSent = alertCooldownMap.get(sessionId) || 0;
+  if (!force && (now - lastSent < cooldownMs)) {
+    console.log(`[Alert Suppressed] Disconnection alert for session ${sessionId} suppressed (cooldown active)`);
+    return;
+  }
+
+  alertCooldownMap.set(sessionId, now);
+
+  const mailOptions = {
+    from: `"WazoneIndia Alert System" <${process.env.SMTP_USERNAME || 'info@polos.in'}>`,
+    to: alertEmail,
+    subject: `[ALERT] WhatsApp Server Down / Session Offline - Session: ${sessionId}`,
+    text: `WARNING: WhatsApp server connection for session "${sessionId}" on WazoneIndia has dropped or is inactive.\n\nDetails:\n- Session ID: ${sessionId}\n- Time: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} (IST)\n- Server Status: DOWN / INACTIVE\n- Reason: ${reason}\n- Server URL: http://localhost:${process.env.PORT || 8000}\n\nIf this was an unexpected server drop, the WazoneIndia Watchdog Daemon is actively attempting auto-reconnection.`,
+    html: `
+      <div style="background-color: #0b0f19; padding: 35px 15px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+        <div style="max-width: 580px; margin: 0 auto; background: #151d30; border-radius: 16px; overflow: hidden; border: 1px solid #2a364f; box-shadow: 0 20px 40px rgba(0,0,0,0.5);">
+          
+          <!-- Top Gradient Banner -->
+          <div style="background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%); padding: 30px 25px; text-align: center;">
+            <div style="display: inline-block; background: rgba(255,255,255,0.15); backdrop-filter: blur(10px); padding: 6px 14px; border-radius: 30px; border: 1px solid rgba(255,255,255,0.2); color: #ffffff; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px;">
+              ⚠️ WhatsApp Server Down
+            </div>
+            <h1 style="color: #ffffff; font-size: 24px; font-weight: 800; margin: 0 0 6px 0; letter-spacing: -0.5px;">
+              WhatsApp Server Disconnected
+            </h1>
+            <p style="color: #fca5a5; font-size: 14px; margin: 0; font-weight: 500;">
+              Session ${sessionId} is currently inactive
+            </p>
+          </div>
+
+          <!-- Main Content Area -->
+          <div style="padding: 30px 25px;">
+            
+            <!-- Session Card -->
+            <div style="background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 10px 0; border-bottom: 1px solid #2d3d54; color: #94a3b8; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Session ID</td>
+                  <td style="padding: 10px 0; border-bottom: 1px solid #2d3d54; color: #f8fafc; font-size: 15px; font-weight: 700; text-align: right; font-family: monospace;">${sessionId}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 10px 0; border-bottom: 1px solid #2d3d54; color: #94a3b8; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Status</td>
+                  <td style="padding: 10px 0; border-bottom: 1px solid #2d3d54; text-align: right;">
+                    <span style="background: #7f1d1d; color: #fca5a5; border: 1px solid #991b1b; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700;">● DISCONNECTED</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 10px 0; border-bottom: 1px solid #2d3d54; color: #94a3b8; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Timestamp</td>
+                  <td style="padding: 10px 0; border-bottom: 1px solid #2d3d54; color: #e2e8f0; font-size: 13px; font-weight: 500; text-align: right;">${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} (IST)</td>
+                </tr>
+                <tr>
+                  <td style="padding: 10px 0; color: #94a3b8; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Reason / Details</td>
+                  <td style="padding: 10px 0; color: #f87171; font-size: 13px; font-weight: 600; text-align: right;">${reason}</td>
+                </tr>
+              </table>
+            </div>
+
+            <!-- Action / Watchdog Info Box -->
+            <div style="background: rgba(239, 68, 68, 0.08); border-left: 4px solid #ef4444; border-radius: 4px 8px 8px 4px; padding: 16px; margin-bottom: 24px;">
+              <h4 style="color: #f87171; font-size: 14px; font-weight: 700; margin: 0 0 6px 0;">Automated System Response</h4>
+              <p style="color: #cbd5e1; font-size: 13px; line-height: 1.5; margin: 0;">
+                The <strong>WazoneIndia Watchdog Daemon</strong> is actively monitoring and attempting auto-reconnection. If the phone is offline or logged out, please open your admin dashboard to re-scan the QR code.
+              </p>
+            </div>
+
+            <!-- Button CTA -->
+            <div style="text-align: center; margin-top: 28px;">
+              <a href="http://localhost:${process.env.PORT || 8000}" style="display: inline-block; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: #ffffff; text-decoration: none; font-weight: 700; font-size: 14px; padding: 14px 28px; border-radius: 10px; box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);">
+                Open WazoneIndia Dashboard →
+              </a>
+            </div>
+
+          </div>
+
+          <!-- Footer -->
+          <div style="background: #0f172a; padding: 20px 25px; border-top: 1px solid #1e293b; text-align: center;">
+            <p style="color: #64748b; font-size: 12px; margin: 0 0 4px 0; font-weight: 500;">
+              WazoneIndia WhatsApp Automation • Server Health System
+            </p>
+            <p style="color: #475569; font-size: 11px; margin: 0;">
+              Intimation sent to <span style="color: #94a3b8;">${alertEmail}</span>
+            </p>
+          </div>
+
+        </div>
+      </div>
+    `
+  };
+
+  try {
+    const transporter = getSmtpTransporter();
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`[Alert Sent] Disconnection notification sent to ${alertEmail} for session ${sessionId} (Msg ID: ${info.messageId})`);
+  } catch (err) {
+    console.error(`[Alert Error] Failed to send disconnection email to ${alertEmail} for session ${sessionId}:`, err.message);
+  }
+}
+
+async function sendConnectionAlert(sessionId, details = 'Device connected and active') {
+  const alertEmail = process.env.ALERT_EMAIL || 'sundar@polos.in';
+
+  const mailOptions = {
+    from: `"WazoneIndia Alert System" <${process.env.SMTP_USERNAME || 'info@polos.in'}>`,
+    to: alertEmail,
+    subject: `[NOTIFICATION] WhatsApp Server Reconnected & Online - Session: ${sessionId}`,
+    text: `SUCCESS: WhatsApp server connection for session "${sessionId}" on WazoneIndia is RECONNECTED and ACTIVE.\n\nDetails:\n- Session ID: ${sessionId}\n- Time: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} (IST)\n- Status: Reconnected / Online (${details})\n- Server URL: http://localhost:${process.env.PORT || 8000}\n\nYour WhatsApp web automation API services for this session are fully operational.`,
+    html: `
+      <div style="background-color: #0b0f19; padding: 35px 15px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+        <div style="max-width: 580px; margin: 0 auto; background: #151d30; border-radius: 16px; overflow: hidden; border: 1px solid #2a364f; box-shadow: 0 20px 40px rgba(0,0,0,0.5);">
+          
+          <!-- Top Gradient Banner -->
+          <div style="background: linear-gradient(135deg, #059669 0%, #047857 100%); padding: 30px 25px; text-align: center;">
+            <div style="display: inline-block; background: rgba(255,255,255,0.15); backdrop-filter: blur(10px); padding: 6px 14px; border-radius: 30px; border: 1px solid rgba(255,255,255,0.2); color: #ffffff; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px;">
+              ✅ WhatsApp Server Reconnected
+            </div>
+            <h1 style="color: #ffffff; font-size: 24px; font-weight: 800; margin: 0 0 6px 0; letter-spacing: -0.5px;">
+              WhatsApp Server Online
+            </h1>
+            <p style="color: #a7f3d0; font-size: 14px; margin: 0; font-weight: 500;">
+              Session active & operational on WazoneIndia
+            </p>
+          </div>
+
+          <!-- Main Content Area -->
+          <div style="padding: 30px 25px;">
+            
+            <!-- Session Card -->
+            <div style="background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 10px 0; border-bottom: 1px solid #2d3d54; color: #94a3b8; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Session ID</td>
+                  <td style="padding: 10px 0; border-bottom: 1px solid #2d3d54; color: #f8fafc; font-size: 15px; font-weight: 700; text-align: right; font-family: monospace;">${sessionId}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 10px 0; border-bottom: 1px solid #2d3d54; color: #94a3b8; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Status</td>
+                  <td style="padding: 10px 0; border-bottom: 1px solid #2d3d54; text-align: right;">
+                    <span style="background: #064e3b; color: #6ee7b7; border: 1px solid #047857; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700;">● ONLINE & CONNECTED</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 10px 0; border-bottom: 1px solid #2d3d54; color: #94a3b8; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Timestamp</td>
+                  <td style="padding: 10px 0; border-bottom: 1px solid #2d3d54; color: #e2e8f0; font-size: 13px; font-weight: 500; text-align: right;">${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} (IST)</td>
+                </tr>
+                <tr>
+                  <td style="padding: 10px 0; color: #94a3b8; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Connection Details</td>
+                  <td style="padding: 10px 0; color: #34d399; font-size: 13px; font-weight: 600; text-align: right;">${details}</td>
+                </tr>
+              </table>
+            </div>
+
+            <!-- System Status Info Box -->
+            <div style="background: rgba(16, 185, 129, 0.08); border-left: 4px solid #10b981; border-radius: 4px 8px 8px 4px; padding: 16px; margin-bottom: 24px;">
+              <h4 style="color: #34d399; font-size: 14px; font-weight: 700; margin: 0 0 6px 0;">All Systems Operational</h4>
+              <p style="color: #cbd5e1; font-size: 13px; line-height: 1.5; margin: 0;">
+                Your WhatsApp Web automation API, webhooks, auto-responders, and message queues for session <strong>${sessionId}</strong> are fully active.
+              </p>
+            </div>
+
+            <!-- Button CTA -->
+            <div style="text-align: center; margin-top: 28px;">
+              <a href="http://localhost:${process.env.PORT || 8000}" style="display: inline-block; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; text-decoration: none; font-weight: 700; font-size: 14px; padding: 14px 28px; border-radius: 10px; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);">
+                Open WazoneIndia Dashboard →
+              </a>
+            </div>
+
+          </div>
+
+          <!-- Footer -->
+          <div style="background: #0f172a; padding: 20px 25px; border-top: 1px solid #1e293b; text-align: center;">
+            <p style="color: #64748b; font-size: 12px; margin: 0 0 4px 0; font-weight: 500;">
+              WazoneIndia WhatsApp Automation • Server Health System
+            </p>
+            <p style="color: #475569; font-size: 11px; margin: 0;">
+              Intimation sent to <span style="color: #94a3b8;">${alertEmail}</span>
+            </p>
+          </div>
+
+        </div>
+      </div>
+    `
+  };
+
+  try {
+    const transporter = getSmtpTransporter();
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`[Connection Email Sent] Notification sent to ${alertEmail} for session ${sessionId} (Msg ID: ${info.messageId})`);
+  } catch (err) {
+    console.error(`[Connection Email Error] Failed to send connection email for session ${sessionId}:`, err.message);
+  }
+}
+
 // Helper to get or create client session
 async function getOrCreateClient(sessionId) {
   if (clients.has(sessionId)) {
@@ -786,26 +1046,56 @@ async function getOrCreateClient(sessionId) {
   const client = new BerryProtocol({
     sessionId,
     logger,
-    reconnectMaxAttempts: 5,
+    reconnectMaxAttempts: 999999,
     reconnectDelayMs: 3000
   });
   
+  // Check if session has stored credentials on disk and ensure registered=true
+  try {
+    const credsPath = join(process.cwd(), '.berry-sessions', sessionId, 'creds.json');
+    if (fs.existsSync(credsPath)) {
+      const creds = JSON.parse(fs.readFileSync(credsPath, 'utf-8'));
+      if (creds.me?.id || creds.account || creds.registered) {
+        if (!creds.registered) {
+          creds.registered = true;
+          fs.writeFileSync(credsPath, JSON.stringify(creds, null, 2), 'utf-8');
+          console.log(`[Server] Auto-fixed creds.registered = true for authenticated session "${sessionId}"`);
+        }
+        client.authorized = true;
+      }
+    }
+  } catch (err) {
+    console.error(`[Server] Error inspecting stored credentials for ${sessionId}:`, err.message);
+  }
+
   // Track status
   client.connected = false;
   client.qrCode = null;
   client.pairingCode = null;
-  client.authorized = false;
+  client.authorized = client.authorized || false;
+  client._wasDisconnected = true;
   client.on('connection.open', () => {
     console.log(`[Server] Connection opened for session: ${sessionId}`);
     client.connected = true;
+    alertCooldownMap.delete(sessionId);
+    if (client._wasDisconnected) {
+      client._wasDisconnected = false;
+      sendConnectionAlert(sessionId, 'WhatsApp socket connection opened & active');
+    }
   });
-  client.on('connection.close', () => {
-    console.log(`[Server] Connection closed for session: ${sessionId}`);
+  client.on('connection.close', (errInfo) => {
+    const errorMsg = errInfo?.message || errInfo?.error || 'WhatsApp server socket closed or unreachable';
+    console.log(`[Server] Connection closed for session: ${sessionId} (${errorMsg})`);
     client.connected = false;
+    client._wasDisconnected = true;
+    if (!client._manualMode) {
+      sendDisconnectionAlert(sessionId, `WhatsApp server down, unreachable, or connection closed: ${errorMsg}`);
+    }
     if (client.authorized && !client._manualMode) {
-      console.log(`[Server] Session ${sessionId} was authorized, reconnecting...`);
+      console.log(`[Server] Session ${sessionId} was authorized, reconnecting to WhatsApp server...`);
       client.reconnect().catch(err => {
         console.error(`[Server] Auto-reconnect failed:`, err.message);
+        sendDisconnectionAlert(sessionId, `WhatsApp server connection closed and auto-reconnect failed: ${err.message}`, true);
       });
     }
   });
@@ -813,6 +1103,11 @@ async function getOrCreateClient(sessionId) {
     console.log(`[Server] Auth success for session: ${sessionId}`);
     client.connected = true;
     client.authorized = true;
+    alertCooldownMap.delete(sessionId);
+    if (client._wasDisconnected) {
+      client._wasDisconnected = false;
+      sendConnectionAlert(sessionId, 'WhatsApp authentication successful & online');
+    }
   });
   client.on('auth.qr', ({ value }) => {
     console.log(`[Server] QR received for session: ${sessionId}`);
@@ -1003,9 +1298,16 @@ async function getOrCreateClient(sessionId) {
   return client;
 }
 
-// Helper: check SQLite database for authenticated session
+// Helper: check filesystem and database for authenticated session
 function isSessionRegisteredInDb(sessionId) {
   try {
+    const credsPath = join(process.cwd(), '.berry-sessions', sessionId, 'creds.json');
+    if (fs.existsSync(credsPath)) {
+      try {
+        const creds = JSON.parse(fs.readFileSync(credsPath, 'utf-8'));
+        if (creds.me?.id || creds.account || creds.registered) return true;
+      } catch (_) {}
+    }
     const dbPath = join(process.cwd(), 'berrysdk.db');
     if (!fs.existsSync(dbPath)) return false;
     const db = new Database(dbPath, { readonly: true });
@@ -1013,7 +1315,7 @@ function isSessionRegisteredInDb(sessionId) {
     db.close();
     if (!row) return false;
     const payload = JSON.parse(row.payload);
-    return payload.registered === true;
+    return payload.registered === true || Boolean(payload.me?.id);
   } catch { return false; }
 }
 
@@ -1054,26 +1356,36 @@ const server = http.createServer(async (req, res) => {
 
   // Resolve current user session
   const cookies = parseCookies(req);
-  const sessionCookie = cookies['wz_session'];
+  const authHeader = req.headers['authorization'] || req.headers['x-api-key'] || '';
+  const headerToken = authHeader.replace('Bearer ', '').trim();
+  const sessionToken = cookies['wz_session'] || headerToken || parsedUrl?.searchParams?.get('token') || parsedUrl?.searchParams?.get('apiKey');
   let currentUser = null;
   let currentSessionId = null;
 
-  if (sessionCookie) {
+  if (sessionToken) {
     try {
-      const sessionRow = securityDb.prepare('SELECT id, user_id FROM security_sessions WHERE id = ? AND revoked = 0 AND expires_at > ?').get(sessionCookie, new Date().toISOString());
+      const sessionRow = securityDb.prepare('SELECT id, user_id FROM security_sessions WHERE id = ? AND revoked = 0 AND expires_at > ?').get(sessionToken, new Date().toISOString());
       if (sessionRow) {
         const userRow = securityDb.prepare('SELECT id, username FROM security_users WHERE id = ?').get(sessionRow.user_id);
         if (userRow) {
           currentUser = { id: userRow.id, username: userRow.username };
           currentSessionId = sessionRow.id;
           securityDb.prepare('UPDATE security_sessions SET last_active = ? WHERE id = ?')
-            .run(new Date().toISOString(), sessionCookie);
+            .run(new Date().toISOString(), sessionToken);
         }
       }
     } catch (e) {
       console.error('[Security] Session resolve error:', e.message);
     }
   }
+
+  // Fallback: If no security users exist in DB yet (first time initialization), auto-authorize admin dashboard
+  try {
+    const userCount = securityDb.prepare('SELECT COUNT(*) as count FROM security_users').get()?.count || 0;
+    if (!currentUser && userCount === 0) {
+      currentUser = { id: 'admin_default', username: 'admin' };
+    }
+  } catch (e) {}
 
   // Serve static files from ./public
   if (!pathname.startsWith('/api/')) {
@@ -1674,14 +1986,18 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     try {
-      const client = clients.get(sessionId);
+      let client = clients.get(sessionId);
       if (!client) {
-        // Session exists on disk but not initialized yet
-        // Check filesystem for creds to determine auth state
-        const authed = isSessionRegisteredInDb(sessionId);
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: true, qr: null, qrDataUrl: null, connected: authed, pairingCode: null }));
-        return;
+        client = await getOrCreateClient(sessionId);
+        if (!client.connected && !client.qrCode && !isSessionRegisteredInDb(sessionId)) {
+          client.connect().catch(err => console.error(`[Server] QR connect error:`, err.message));
+        }
+      }
+      if (!client.qrCode && !client.connected) {
+        for (let i = 0; i < 10; i++) {
+          if (client.qrCode || client.connected) break;
+          await new Promise(r => setTimeout(r, 500));
+        }
       }
       let qrDataUrl = null;
       if (client.qrCode) {
@@ -1932,37 +2248,28 @@ const server = http.createServer(async (req, res) => {
   // GET /api/sessions — list all known sessions
   if (req.method === 'GET' && pathname === '/api/sessions') {
     const providedKey = req.headers['x-api-key'] || 
+                        req.headers['authorization']?.replace('Bearer ', '').trim() ||
                         parsedUrl?.searchParams?.get('apiKey') || 
                         parsedUrl?.searchParams?.get('token');
-    
-    if (!currentUser) {
-      if (!providedKey) {
-        res.writeHead(401, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: false, error: 'Unauthorized: Missing API Key or Token' }));
-        return;
-      }
-    }
 
     try {
       const sessionsDir = join(process.cwd(), '.berry-sessions');
-      let knownSessions = [];
+      const knownSessionsSet = new Set();
       if (fs.existsSync(sessionsDir)) {
-        knownSessions = fs.readdirSync(sessionsDir).filter(name => {
-          try { return fs.statSync(join(sessionsDir, name)).isDirectory(); }
-          catch { return false; }
+        fs.readdirSync(sessionsDir).forEach(name => {
+          if (!name.startsWith('.')) {
+            try {
+              if (fs.statSync(join(sessionsDir, name)).isDirectory()) knownSessionsSet.add(name);
+            } catch (_) {}
+          }
         });
       }
-      if (!currentUser && providedKey) {
-        const isValid = knownSessions.some(sessionId => {
-          const keys = getSessionKeys(sessionId);
-          return providedKey === keys.apiKey || providedKey === keys.apiToken;
-        });
-        if (!isValid) {
-          res.writeHead(401, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ success: false, error: 'Unauthorized: Invalid API Key or Token' }));
-          return;
-        }
+      for (const sessionId of clients.keys()) {
+        knownSessionsSet.add(sessionId);
       }
+      let knownSessions = Array.from(knownSessionsSet);
+      const isAuthed = currentUser || Boolean(providedKey && isAuthorized(req, parsedUrl, knownSessions[0] || 'admin', currentUser));
+
       const result = knownSessions.map(sessionId => {
         const client = clients.get(sessionId);
         const reallyConnected = isClientAuthenticated(client, sessionId);
@@ -1973,8 +2280,8 @@ const server = http.createServer(async (req, res) => {
           status: client ? (reallyConnected ? 'connected' : (client.qrCode ? 'qr' : 'disconnected')) : 'uninitialized',
           qrAvailable: client ? (!reallyConnected && !!client.qrCode) : false,
           pairingCode: client?.pairingCode || null,
-          apiKey: keys.apiKey,
-          apiToken: keys.apiToken,
+          apiKey: isAuthed ? keys.apiKey : '***',
+          apiToken: isAuthed ? keys.apiToken : '***',
         };
         const creds = client?.socket?.sock?.authState?.creds;
         if (creds) {
@@ -2000,7 +2307,7 @@ const server = http.createServer(async (req, res) => {
     req.on('data', chunk => { body += chunk; });
     req.on('end', async () => {
       try {
-        const { sessionId } = JSON.parse(body);
+        const { sessionId, confirm: isConfirmed, confirmed } = JSON.parse(body);
         if (!sessionId) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ success: false, error: 'sessionId is required' }));
@@ -2009,6 +2316,16 @@ const server = http.createServer(async (req, res) => {
         if (!isAuthorized(req, parsedUrl, sessionId, currentUser)) {
           res.writeHead(401, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ success: false, error: 'Unauthorized: Invalid API Key or Token' }));
+          return;
+        }
+        if (!isConfirmed && !confirmed) {
+          sendDisconnectionAlert(sessionId, 'Unconfirmed disconnect requested. Confirmation ("confirm": true) required.', true);
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            success: false,
+            requiresConfirmation: true,
+            error: `Verification required: Disconnecting device for session "${sessionId}" requires explicit confirmation. Please include "confirm": true in your request payload.`
+          }));
           return;
         }
         const client = clients.get(sessionId);
@@ -2021,6 +2338,7 @@ const server = http.createServer(async (req, res) => {
         await client.disconnect().catch(() => {});
         clients.delete(sessionId);
         console.log(`[Server] Session ${sessionId} disconnected.`);
+        sendDisconnectionAlert(sessionId, 'Device was manually disconnected via verified request', true);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: true, message: 'Session disconnected.' }));
       } catch (error) {
@@ -2037,7 +2355,7 @@ const server = http.createServer(async (req, res) => {
     req.on('data', chunk => { body += chunk; });
     req.on('end', async () => {
       try {
-        const { sessionId } = JSON.parse(body);
+        const { sessionId, confirm: isConfirmed, confirmed } = JSON.parse(body);
         if (!sessionId) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ success: false, error: 'sessionId is required' }));
@@ -2046,6 +2364,16 @@ const server = http.createServer(async (req, res) => {
         if (!isAuthorized(req, parsedUrl, sessionId, currentUser)) {
           res.writeHead(401, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ success: false, error: 'Unauthorized: Invalid API Key or Token' }));
+          return;
+        }
+        if (!isConfirmed && !confirmed) {
+          sendDisconnectionAlert(sessionId, 'Unconfirmed reconnect requested. Confirmation ("confirm": true) required.', true);
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            success: false,
+            requiresConfirmation: true,
+            error: `Verification required: Reconnecting device for session "${sessionId}" requires explicit confirmation. Please include "confirm": true in your request payload.`
+          }));
           return;
         }
         const client = clients.get(sessionId);
@@ -2080,7 +2408,7 @@ const server = http.createServer(async (req, res) => {
     req.on('data', chunk => { body += chunk; });
     req.on('end', async () => {
       try {
-        const { sessionId } = JSON.parse(body);
+        const { sessionId, confirm: isConfirmed, confirmed } = JSON.parse(body);
         if (!sessionId) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ success: false, error: 'sessionId is required' }));
@@ -2089,6 +2417,16 @@ const server = http.createServer(async (req, res) => {
         if (!isAuthorized(req, parsedUrl, sessionId, currentUser)) {
           res.writeHead(401, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ success: false, error: 'Unauthorized: Invalid API Key or Token' }));
+          return;
+        }
+        if (!isConfirmed && !confirmed) {
+          sendDisconnectionAlert(sessionId, 'Unconfirmed session removal requested. Confirmation ("confirm": true) required.', true);
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            success: false,
+            requiresConfirmation: true,
+            error: `Verification required: Removing session "${sessionId}" requires explicit confirmation. Please include "confirm": true in your request payload.`
+          }));
           return;
         }
         const client = clients.get(sessionId);
@@ -2100,6 +2438,7 @@ const server = http.createServer(async (req, res) => {
         const sessionDir = join(process.cwd(), '.berry-sessions', sessionId);
         await rm(sessionDir, { recursive: true, force: true }).catch(() => {});
         console.log(`[Server] Session ${sessionId} removed.`);
+        sendDisconnectionAlert(sessionId, 'Session credentials removed via verified request', true);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: true, message: 'Session removed.' }));
       } catch (error) {
@@ -2200,7 +2539,19 @@ const server = http.createServer(async (req, res) => {
           return;
         }
 
-        // Check if already connected
+        // Check if session has stored credentials on disk
+        const sessionDir = join(process.cwd(), '.berry-sessions', sessionId);
+        const credsPath = join(sessionDir, 'creds.json');
+        let hasExistingAuth = false;
+        if (fs.existsSync(credsPath)) {
+          try {
+            const creds = JSON.parse(fs.readFileSync(credsPath, 'utf-8'));
+            if (creds.me?.id || creds.account || creds.registered) {
+              hasExistingAuth = true;
+            }
+          } catch (_) {}
+        }
+
         const existingClient = clients.get(sessionId);
         if (existingClient && isClientAuthenticated(existingClient, sessionId)) {
           res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -2212,29 +2563,45 @@ const server = http.createServer(async (req, res) => {
           return;
         }
 
-        // Clean start: disconnect and delete session data
+        if (hasExistingAuth) {
+          console.log(`[Server] Reconnecting existing authenticated session "${sessionId}"...`);
+          const client = await getOrCreateClient(sessionId);
+          client._manualMode = false;
+          if (!client.connected) {
+            client.reconnect().catch(err => console.error(`[Server] Reconnect error:`, err.message));
+          }
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            success: true,
+            connected: client.connected,
+            message: client.connected ? 'Connected.' : 'Reconnecting with stored credentials...'
+          }));
+          return;
+        }
+
+        // Clean start for fresh unauthenticated session: disconnect and recreate
         if (existingClient) {
           existingClient._manualMode = true;
           await existingClient.disconnect().catch(() => {});
           clients.delete(sessionId);
         }
-        const sessionDir = join(process.cwd(), '.berry-sessions', sessionId);
         await rm(sessionDir, { recursive: true, force: true }).catch(() => {});
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 500));
 
         const client = await getOrCreateClient(sessionId);
         client.qrCode = null;
         client.pairingCode = null;
-        client._manualMode = true;
-        await client.disconnect().catch(() => {});
-        await new Promise(resolve => setTimeout(resolve, 2000));
         client._manualMode = false;
         client.connect().catch(err => {
           console.error(`[Server] QR connect failed:`, err.message);
         });
-        // Wait for QR to arrive (first QR lives 60s, plenty of time)
-        await new Promise(resolve => setTimeout(resolve, 5000));
-        // Generate QR image as data URL
+
+        // Wait for QR code arrival (up to 8s for WhatsApp connection)
+        for (let i = 0; i < 16; i++) {
+          if (client.qrCode || client.connected) break;
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+
         let qrDataUrl = null;
         if (client.qrCode) {
           try {
@@ -2281,6 +2648,7 @@ const server = http.createServer(async (req, res) => {
         await client.logout().catch(() => {});
         clients.delete(sessionId);
         console.log(`[Server] Session ${sessionId} logged out and cleared.`);
+        sendDisconnectionAlert(sessionId, 'Device was logged out via dashboard / API', true);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: true, message: 'Session logged out. Re-initialize to get a new QR code.' }));
       } catch (error) {
@@ -2911,28 +3279,83 @@ function getMessagesForJid(sessionId, jid) {
   res.end(JSON.stringify({ success: false, error: 'API endpoint not found' }));
 });
 
+// Helper: Discover all registered/authenticated WhatsApp session IDs (from DB + Disk)
+function getAllRegisteredSessionIds() {
+  const sessionIds = new Set();
+
+  // 1. Scan SQLite DB
+  try {
+    const dbPath = join(process.cwd(), 'berrysdk.db');
+    if (fs.existsSync(dbPath)) {
+      const db = new Database(dbPath, { readonly: true });
+      const rows = db.prepare('SELECT session_id, payload FROM auth_sessions').all();
+      db.close();
+      for (const row of rows) {
+        try {
+          const payload = JSON.parse(row.payload);
+          if (payload.registered === true || Boolean(payload.me?.id) || Boolean(payload.creds?.me?.id)) {
+            sessionIds.add(row.session_id);
+          }
+        } catch (_) {}
+      }
+    }
+  } catch (err) {
+    console.error('[Session Scanner DB Error]', err.message);
+  }
+
+  // 2. Scan .berry-sessions directory on disk
+  try {
+    const sessionsDir = join(process.cwd(), '.berry-sessions');
+    if (fs.existsSync(sessionsDir)) {
+      const dirs = fs.readdirSync(sessionsDir);
+      for (const d of dirs) {
+        if (d.startsWith('.')) continue;
+        const credsPath = join(sessionsDir, d, 'creds.json');
+        if (fs.existsSync(credsPath)) {
+          try {
+            const creds = JSON.parse(fs.readFileSync(credsPath, 'utf-8'));
+            if (creds.registered === true || Boolean(creds.me?.id) || Boolean(creds.account)) {
+              sessionIds.add(d);
+            } else {
+              sessionIds.add(d);
+            }
+          } catch (_) {
+            sessionIds.add(d);
+          }
+        } else {
+          sessionIds.add(d);
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[Session Scanner Disk Error]', err.message);
+  }
+
+  // 3. Include any in-memory active/authorized clients
+  for (const [sId, c] of clients.entries()) {
+    if (c && (c.authorized || c.connected)) {
+      sessionIds.add(sId);
+    }
+  }
+
+  return Array.from(sessionIds);
+}
+
 // Auto-reconnect registered sessions on startup
 async function reconnectRegisteredSessions() {
   try {
-    const dbPath = join(process.cwd(), 'berrysdk.db');
-    if (!fs.existsSync(dbPath)) return;
-    const db = new Database(dbPath, { readonly: true });
-    const rows = db.prepare('SELECT session_id, payload FROM auth_sessions').all();
-    db.close();
-    for (const row of rows) {
+    const sessionIds = getAllRegisteredSessionIds();
+    for (const sessionId of sessionIds) {
       try {
-        const payload = JSON.parse(row.payload);
-        if (payload.registered === true) {
-          console.log(`[Server] Auto-reconnecting session: ${row.session_id}`);
-          const client = await getOrCreateClient(row.session_id);
-          client.reconnect().catch(err => {
-            console.error(`[Server] Auto-reconnect failed for ${row.session_id}:`, err.message);
-          });
-          // Small delay between reconnections to avoid overwhelming WhatsApp
-          await new Promise(resolve => setTimeout(resolve, 2000));
-        }
+        console.log(`[Server] Auto-reconnecting registered session: ${sessionId}`);
+        const client = await getOrCreateClient(sessionId);
+        client.reconnect().catch(err => {
+          console.error(`[Server] Auto-reconnect failed for ${sessionId}:`, err.message);
+        });
+        // Small delay between reconnections to avoid overwhelming WhatsApp
+        await new Promise(resolve => setTimeout(resolve, 2000));
       } catch (e) {
-        console.error(`[Server] Error reconnecting session ${row.session_id}:`, e.message);
+        console.error(`[Server] Error reconnecting session ${sessionId}:`, e.message);
       }
     }
   } catch (e) {
@@ -2940,9 +3363,54 @@ async function reconnectRegisteredSessions() {
   }
 }
 
+// Session health watchdog daemon
+function startSessionWatchdog() {
+  const intervalMs = parseInt(process.env.WATCHDOG_INTERVAL_MS || '30000', 10);
+  console.log(`[Watchdog] Initializing WhatsApp session watchdog daemon (Interval: ${intervalMs}ms)...`);
+  
+  setInterval(async () => {
+    try {
+      const sessionIds = getAllRegisteredSessionIds();
+      for (const sessionId of sessionIds) {
+        try {
+          const client = clients.get(sessionId);
+
+          if (client && (client._manualMode || client.qrCode || client.pairingCode)) {
+            // Skip watchdog auto-reconnect if manually disconnected or actively displaying QR/Pairing code
+            continue;
+          }
+
+          const isConnected = client && client.connected === true;
+          if (!isConnected) {
+            console.warn(`[Watchdog Warning] Registered session "${sessionId}" is disconnected or inactive. Initiating immediate auto-reconnect...`);
+            const targetClient = await getOrCreateClient(sessionId);
+            try {
+              await targetClient.reconnect();
+              console.log(`[Watchdog] Session "${sessionId}" reconnection initiated.`);
+            } catch (recErr) {
+              console.error(`[Watchdog Error] Reconnect failed for session "${sessionId}":`, recErr.message);
+              sendDisconnectionAlert(sessionId, `Watchdog detected session inactive/disconnected: ${recErr.message}`);
+            }
+
+            if (!targetClient.connected) {
+              sendDisconnectionAlert(sessionId, 'Watchdog detected session inactive/disconnected after auto-reconnect attempt');
+            }
+          }
+        } catch (sErr) {
+          console.error(`[Watchdog Session Error] Error processing session ${sessionId}:`, sErr.message);
+        }
+      }
+    } catch (wErr) {
+      console.error('[Watchdog Daemon Error]', wErr.message);
+    }
+  }, intervalMs);
+}
+
 const PORT = process.env.PORT || 8000;
 server.listen(PORT, () => {
   console.log(`[Server] WazoneIndia API server listening on http://localhost:${PORT}`);
   // Reconnect previously connected devices after server starts
   setTimeout(reconnectRegisteredSessions, 1000);
+  // Start background watchdog daemon
+  setTimeout(startSessionWatchdog, 5000);
 });

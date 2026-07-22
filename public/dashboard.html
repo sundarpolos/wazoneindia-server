@@ -710,6 +710,10 @@
         <a href="/docs" target="_blank" class="btn-secondary" style="text-decoration:none;display:inline-flex;align-items:center;gap:.35rem;padding:.4rem .8rem;font-size:.78rem;border-radius:9999px">
           <span>&#128196; API Docs</span>
         </a>
+        <div class="connection-pill connected" id="waServerStatusPill" style="display:inline-flex;align-items:center;gap:.4rem;padding:.4rem .9rem;font-size:.78rem;font-weight:700;border-radius:9999px;background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.35);color:#34d399">
+          <span class="status-dot connected" id="waServerStatusDot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#10b981;box-shadow:0 0 10px #10b981"></span>
+          <span id="waServerStatusText">WA Server: Active</span>
+        </div>
         <div class="connection-pill disconnected" id="statusPill">
           <span class="status-dot disconnected" id="statusDot"></span>
           <span id="statusText">Disconnected</span>
@@ -741,7 +745,7 @@
           <div class="form-group">
             <label class="form-label">New Device Session ID</label>
             <div style="display:flex;gap:.35rem">
-              <input class="form-input" id="new-session-name" value="" placeholder="e.g. wazone_919XXXXXXXXX">
+              <input class="form-input" id="new-session-name" value="" placeholder="e.g. wazone_919XXXXXXXXX" onkeydown="if(event.key==='Enter'){event.preventDefault();addDevice();}">
               <button class="btn-primary" onclick="addDevice()" id="addDeviceBtn" style="padding:0 .65rem;border-radius:8px;white-space:nowrap;font-size:.78rem">+ Add</button>
             </div>
             <p style="font-size:.62rem;color:var(--color-muted);margin-top:.15rem">Each phone number needs its own session. Click a device to set it as the active sender.</p>
@@ -1234,8 +1238,8 @@
     // --- DEVICE MANAGEMENT ---
     let devicePollTimer = null;
     let activeSessionDevice = null;
-
-    let visibleQrSessions = {}; // Track which sessions have QR visible
+    var visibleQrSessions = {}; // Track which sessions have QR visible
+    var localPendingDevices = {}; // Track newly added sessions locally until server confirms
 
     function renderDeviceCard(s) {
       const isActive = activeSessionDevice === s.sessionId;
@@ -1282,21 +1286,31 @@
 
     function renderDeviceCards(sessions) {
       const list = document.getElementById('deviceList');
-      if (!sessions || sessions.length === 0) {
+      let merged = [...(sessions || [])];
+      for (const pId in localPendingDevices) {
+        const foundIdx = merged.findIndex(s => s.sessionId === pId);
+        if (foundIdx === -1) {
+          merged.push(localPendingDevices[pId]);
+        } else if (merged[foundIdx].connected) {
+          delete localPendingDevices[pId];
+        }
+      }
+
+      if (merged.length === 0) {
         list.innerHTML = '<div style="padding:1rem;text-align:center;font-size:.72rem;color:var(--color-muted)">No devices found. Add one above.</div>';
         return;
       }
       // Save which QRs are visible before re-render
-      sessions.forEach(s => {
+      merged.forEach(s => {
         const wrap = document.getElementById('qr-'+s.sessionId);
         if (wrap && wrap.style.display !== 'none') {
           visibleQrSessions[s.sessionId] = true;
         }
       });
-      list.innerHTML = sessions.map(s => renderDeviceCard(s)).join('');
-      updateDeviceSelector(sessions);
-      if (!activeSessionDevice && sessions.length > 0) {
-        selectDevice(sessions[0].sessionId);
+      list.innerHTML = merged.map(s => renderDeviceCard(s)).join('');
+      updateDeviceSelector(merged);
+      if (!activeSessionDevice && merged.length > 0) {
+        selectDevice(merged[0].sessionId);
       }
     }
 
@@ -1322,6 +1336,16 @@
       }
     }
 
+    function getAuthHeaders(extra = {}) {
+      const headers = { ...extra };
+      const token = localStorage.getItem('wz_token');
+      if (token) {
+        headers['Authorization'] = 'Bearer ' + token;
+        headers['x-api-key'] = token;
+      }
+      return headers;
+    }
+
     async function fetchDevices() {
       const mock = document.getElementById('mockMode').checked;
       if (mock) {
@@ -1330,14 +1354,21 @@
         return mockSessions;
       }
       try {
-        const res = await fetch(BASE + '/api/sessions');
+        const res = await fetch(BASE + '/api/sessions', {
+          headers: getAuthHeaders(),
+          credentials: 'same-origin'
+        });
         const data = await res.json();
-        if (data.success && data.sessions) {
+        if (data.success && Array.isArray(data.sessions)) {
           renderDeviceCards(data.sessions);
           return data.sessions;
+        } else {
+          renderDeviceCards([]);
+          if (data.error) addLog('Device list fetch note: ' + data.error, 'warning');
         }
       } catch (e) {
-        addLog('Device list fetch error: '+e.message, 'error');
+        renderDeviceCards([]);
+        addLog('Device list fetch note: '+e.message, 'warning');
       }
       return [];
     }
@@ -1358,48 +1389,61 @@
     }
 
     async function addDevice() {
-      const name = document.getElementById('new-session-name').value.trim();
-      if (!name) { showToast('Enter a session name','error'); return; }
+      const inputEl = document.getElementById('new-session-name');
+      const rawName = (inputEl ? inputEl.value : '').trim();
+      if (!rawName) { showToast('Enter a session name','error'); return; }
+      
+      const name = rawName.replace(/[^a-zA-Z0-9_-]/g, '');
+      if (!name) { showToast('Invalid name. Use letters, numbers, _','error'); return; }
+
+      localPendingDevices[name] = { sessionId: name, connected: false, status: 'qr', qrAvailable: true };
       const btn = document.getElementById('addDeviceBtn');
-      btn.disabled = true; btn.textContent = 'Adding...';
+      if (btn) { btn.disabled = true; btn.textContent = 'Adding...'; }
+
       try {
         const res = await fetch(BASE + '/api/connect-qr', {
           method: 'POST',
-          headers: {'Content-Type':'application/json'},
+          headers: getAuthHeaders({'Content-Type':'application/json'}),
+          credentials: 'same-origin',
           body: JSON.stringify({sessionId: name})
         });
         const data = await res.json();
-        await fetchDevices();
+        let currentSessions = await fetchDevices();
+        
+        let deviceExists = Array.isArray(currentSessions) && currentSessions.some(s => s.sessionId === name);
+        if (!deviceExists) {
+          if (!Array.isArray(currentSessions)) currentSessions = [];
+          currentSessions.push(localPendingDevices[name]);
+          renderDeviceCards(currentSessions);
+        }
         selectDevice(name);
+        if (inputEl) inputEl.value = '';
+
         if (data.connected) {
           showToast('Device connected: '+name, 'success');
           addLog('Device already connected: '+name, 'success');
-        } else if (data.qrDataUrl) {
-          showToast('Device initialized: '+name, 'success');
-          addLog('Device initialized: '+name+' — QR ready', 'success');
-          visibleQrSessions[name] = true;
-          setTimeout(() => {
-            const qrWrap = document.getElementById('qr-'+name);
-            const qrImg = document.getElementById('qrimg-'+name);
-            const qrMsg = document.getElementById('qrmsg-'+name);
-            if (qrWrap && qrImg) {
-              qrImg.src = data.qrDataUrl;
-              qrImg.style.display = 'block';
-              qrWrap.style.display = 'block';
-              qrMsg.textContent = 'Scan with WhatsApp → Linked Devices → Link a Device';
-              startQrPoll(name);
-            }
-          }, 200);
         } else {
-          showToast('Device added: '+name, 'success');
-          addLog('Device added: '+name+' — '+ (data.message || ''), 'info');
+          showToast('Device added: '+name+' — Generating QR...', 'success');
+          addLog('Device added: '+name+' — initializing QR code...', 'info');
+          visibleQrSessions[name] = true;
+          const qrWrap = document.getElementById('qr-'+name);
+          const qrImg = document.getElementById('qrimg-'+name);
+          const qrMsg = document.getElementById('qrmsg-'+name);
+          if (qrWrap) qrWrap.style.display = 'block';
+          if (data.qrDataUrl && qrImg) {
+            qrImg.src = data.qrDataUrl;
+            qrImg.style.display = 'block';
+          }
+          if (qrMsg) qrMsg.textContent = data.qrDataUrl ? 'Scan with WhatsApp → Linked Devices → Link a Device' : 'Generating QR code... Scan with WhatsApp → Linked Devices';
+          startQrPoll(name);
         }
       } catch (e) {
         output('device-output', 'Error: '+e.message, 'error');
-        showToast('Failed to add device','error');
+        showToast('Failed to add device: '+e.message,'error');
         addLog('Add device error: '+e.message, 'error');
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '+ Add'; }
       }
-      btn.disabled = false; btn.textContent = '+ Add';
     }
 
     let qrPollTimers = {};
@@ -1411,32 +1455,31 @@
       let connectedTime = 0;
       qrPollTimers[sessionId] = setInterval(async () => {
         try {
-          const r = await fetch(BASE + '/api/qr/' + encodeURIComponent(sessionId));
+          const r = await fetch(BASE + '/api/qr/' + encodeURIComponent(sessionId), {
+            headers: getAuthHeaders(),
+            credentials: 'same-origin'
+          });
           const d = await r.json();
           if (d.connected) {
             if (connectedTime === 0) {
               connectedTime = Date.now();
-              qrMsg.textContent = '✅ Connected! Scanning complete.';
+              if (qrMsg) qrMsg.textContent = '✅ Connected! Scanning complete.';
               showToast('Device connected: '+sessionId, 'success');
             }
             if (Date.now() - connectedTime > 15000) {
               clearInterval(qrPollTimers[sessionId]);
               delete qrPollTimers[sessionId];
               if (qrImg) qrImg.style.display = 'none';
-              qrMsg.textContent = '✅ Connected';
+              if (qrMsg) qrMsg.textContent = '✅ Connected';
               fetchDevices();
             }
           } else if (d.qrDataUrl && qrImg) {
-            const newUrl = d.qrDataUrl.split('?')[0]; // strip cache busters
-            const oldUrl = (qrImg.src || '').split('?')[0];
-            if (newUrl !== oldUrl) {
-              qrImg.src = d.qrDataUrl;
-              qrImg.style.display = 'block';
-              qrMsg.textContent = 'Scan with WhatsApp → Linked Devices → Link a Device';
-            }
+            qrImg.src = d.qrDataUrl;
+            qrImg.style.display = 'block';
+            if (qrMsg) qrMsg.textContent = 'Scan with WhatsApp → Linked Devices → Link a Device';
           }
         } catch {}
-      }, 3000);
+      }, 1500);
     }
 
     async function fetchAndShowQr(sessionId) {
@@ -1448,7 +1491,10 @@
       qrImg.style.display = 'none';
       qrMsg.textContent = 'Fetching QR...';
       try {
-        const r = await fetch(BASE + '/api/qr/' + encodeURIComponent(sessionId));
+        const r = await fetch(BASE + '/api/qr/' + encodeURIComponent(sessionId), {
+          headers: getAuthHeaders(),
+          credentials: 'same-origin'
+        });
         const d = await r.json();
         if (d.connected) {
           qrMsg.textContent = '✅ Already connected';
@@ -1527,11 +1573,12 @@
 
     async function reconnectDevice(sessionId) {
       if (!sessionId) return;
+      if (!confirm('Are you sure you want to reconnect session "'+sessionId+'"?')) return;
       try {
         const res = await fetch(BASE + '/api/reconnect', {
           method: 'POST',
           headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({sessionId})
+          body: JSON.stringify({sessionId, confirm: true})
         });
         const data = await res.json();
         if (data.success) {
@@ -1547,11 +1594,12 @@
     }
 
     async function disconnectDevice(sessionId) {
+      if (!confirm('Are you sure you want to disconnect session "'+sessionId+'"?')) return;
       try {
         await fetch(BASE + '/api/disconnect', {
           method: 'POST',
           headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({sessionId})
+          body: JSON.stringify({sessionId, confirm: true})
         });
         showToast('Disconnected: '+sessionId, 'success');
         addLog('Device disconnected: '+sessionId, 'warning');
@@ -1567,8 +1615,10 @@
         await fetch(BASE + '/api/remove-session', {
           method: 'POST',
           headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({sessionId})
+          body: JSON.stringify({sessionId, confirm: true})
         });
+        delete localPendingDevices[sessionId];
+        delete visibleQrSessions[sessionId];
         showToast('Removed: '+sessionId, 'success');
         addLog('Device removed: '+sessionId, 'warning');
         if (activeSessionDevice === sessionId) activeSessionDevice = null;
@@ -1798,6 +1848,42 @@
     }
 
     // --- STATUS ---
+    function updateWAServerStatus(status) {
+      const pill = document.getElementById('waServerStatusPill');
+      const dot = document.getElementById('waServerStatusDot');
+      const txt = document.getElementById('waServerStatusText');
+      if (!pill || !txt) return;
+
+      if (status === 'active' || status === 'connected' || status === 'online' || status === true) {
+        pill.style.background = 'rgba(16,185,129,.12)';
+        pill.style.borderColor = 'rgba(16,185,129,.35)';
+        pill.style.color = '#34d399';
+        if (dot) {
+          dot.style.background = '#10b981';
+          dot.style.boxShadow = '0 0 10px #10b981';
+        }
+        txt.textContent = 'WA Server: Active';
+      } else if (status === 'reconnecting') {
+        pill.style.background = 'rgba(245,158,11,.12)';
+        pill.style.borderColor = 'rgba(245,158,11,.35)';
+        pill.style.color = '#fbbf24';
+        if (dot) {
+          dot.style.background = '#f59e0b';
+          dot.style.boxShadow = '0 0 10px #f59e0b';
+        }
+        txt.textContent = 'WA Server: Reconnecting...';
+      } else {
+        pill.style.background = 'rgba(239,68,68,.12)';
+        pill.style.borderColor = 'rgba(239,68,68,.35)';
+        pill.style.color = '#f87171';
+        if (dot) {
+          dot.style.background = '#ef4444';
+          dot.style.boxShadow = '0 0 10px #ef4444';
+        }
+        txt.textContent = 'WA Server: Offline';
+      }
+    }
+
     function setStatus(connected, text) {
       const pill = document.getElementById('statusPill');
       const dot = document.getElementById('statusDot');
@@ -1806,10 +1892,12 @@
         pill.className = 'connection-pill connected';
         dot.className = 'status-dot connected';
         txt.textContent = text || 'Instance: Active';
+        updateWAServerStatus(true);
       } else {
         pill.className = 'connection-pill disconnected';
         dot.className = 'status-dot disconnected';
         txt.textContent = text || 'Instance: Disconnected';
+        updateWAServerStatus(false);
       }
     }
 
@@ -1824,15 +1912,18 @@
         const res = await fetch(BASE + '/api/check-status/' + encodeURIComponent(currentSession));
         const data = await res.json();
         if (data.connected) {
-          setStatus(true, 'Active: '+data.phoneNumber?.split(':')[0]||currentSession);
+          setStatus(true, 'Active: '+(data.phoneNumber?.split(':')[0]||currentSession));
           updateConnectionInfo(data);
-        addLog('Status: '+currentSession+' connected', 'success');
+          updateWAServerStatus(true);
+          addLog('Status: '+currentSession+' connected', 'success');
         } else {
           setStatus(false, currentSession+' disconnected');
+          updateWAServerStatus(data.status === 'reconnecting' ? 'reconnecting' : false);
           addLog('Status: '+currentSession+' disconnected', 'warning');
         }
       } catch (e) {
         setStatus(false, currentSession+' error');
+        updateWAServerStatus(false);
         addLog('Status check error: ' + e.message, 'error');
       }
     }

@@ -102,8 +102,13 @@
     "@berrysdk/transport": "0.1.7",
     "@simplewebauthn/server": "^13.3.2",
     "better-sqlite3": "^12.11.1",
+    "dotenv": "^17.4.2",
+    "nodemailer": "^9.0.3",
     "pino": "^9.6.0",
     "qrcode": "^1.5.4",
     "typescript": "^5.8.3"
+  },
+  "overrides": {
+    "better-sqlite3": "$better-sqlite3"
   }
 }
